@@ -1,96 +1,323 @@
 ---
 name: mm-init-project
-description: Инициализирует или обновляет проект для mm-системы — создаёт passport.md в корне, копию в Obsidian, dashboard.md, папку sessions/, и project-instructions.md для claude.ai. Use when user says "оформи проект", "сделай паспорт", "init project", "/mm-init", "/mm-init-project", "обнови паспорт", "регистрирую проект". Работает на пустой папке (новый проект) и на существующем коде (auto-detect стека).
+description: Инициализирует или обновляет проект для mm-системы — создаёт passport.md в корне, копию в Obsidian, dashboard.md, project-instructions.md для claude.ai. Use when user says "оформи проект", "сделай паспорт", "init project", "/mm-init", "/mm-init-project", "обнови паспорт", "регистрирую проект". Работает на пустой папке (новый проект) и на существующем коде с любыми .md файлами (auto-discovery + dry-run preview перед записью).
 ---
 
-# mm-init-project — Project Bootstrap & Refresh
+# mm-init-project — Project Bootstrap & Refresh (safe edition)
 
-Создаёт «паспорт» проекта — единый источник контекста для claude.ai Project Knowledge и для всех mm-* skills.
+Создаёт «паспорт» проекта — единый источник контекста для claude.ai Project Knowledge и для всех mm-* skills. **Всегда показывает план перед записью**, никогда не уничтожает чужие .md файлы.
+
+## Контракт безопасности (это важно — соблюдай дословно)
+
+**Skill ПИШЕТ только в эти файлы:**
+- `<project_root>/passport.md` — создаёт или обновляет
+- `<project_root>/CLAUDE.md` — **только** добавляет секцию `## mm-system` если её нет; **никогда** не редактирует существующие секции
+- `<obsidian_projects>/<name>/passport.md` — копия
+- `<obsidian_projects>/<name>/dashboard.md` — создаёт если нет; в режиме update обновляет только `updated:` в frontmatter и секцию «Последние сессии»
+- `<obsidian_projects>/<name>/project-instructions.md` — пересоздаёт (это деривативный файл)
+
+**Skill ТОЛЬКО ЧИТАЕТ (никогда не редактирует):**
+- README.md, ARCHITECTURE.md, NOTES.md, OVERVIEW.md, CONTEXT.md, DESIGN.md, ROADMAP.md, TODO.md, BUGS.md, DECISIONS.md, и любые другие *.md в проекте
+- package.json, pyproject.toml, requirements.txt, go.mod, Cargo.toml, pom.xml
+- .env.example (не .env!)
+- Dockerfile, docker-compose.yml, railway.json, vercel.json
+- .git/config, git log, git status
+
+**Skill НЕ ТРОГАЕТ ВООБЩЕ:**
+- `.env`, `*.key`, `*.pem`, `secrets/` — даже не читает значения
+- node_modules/, .venv/, dist/, build/, target/
+- Файлы вне `<project_root>` за исключением Obsidian-папки из конфига
+
+**Перед любой записью** — обязательная фаза Preview (см. ниже). Без подтверждения `y` — ничего не пишется.
 
 ## Конфиг
 
 Прочитай `C:\Users\louise\Desktop\louise-skills\config\mm-config.json`. Понадобится:
-- `paths.obsidian_projects` — куда класть папку проекта
-- `paths.skills_repo` — где лежит шаблон паспорта (`templates/passport.md`)
-- `bot_defaults.*` — для дефолтов если проект — Telegram-бот
+- `paths.obsidian_projects`
+- `paths.skills_repo`
+- `bot_defaults.*`
 - `default_language`
 
-## Режимы работы
+## Фаза 0. Определи целевую папку (worktree-aware)
 
-Определи режим автоматически:
-1. **Init** — в корне рабочей папки нет `passport.md`. Создаёшь с нуля.
-2. **Update** — `passport.md` уже есть. Перегенерируешь, сохраняя ручные правки в секциях 8 и 10 (см. ниже).
+**Целевая папка** = «корень проекта», не «cwd как есть».
 
-В обоих режимах в конце копируешь свежий паспорт в Obsidian.
+Алгоритм:
+1. Возьми `cwd`.
+2. Если в пути есть подстрока `\.claude\worktrees\` или `/.claude/worktrees/` — это worktree. Найди корневой репо:
+   - Прочитай `<cwd>/.git` (это файл-указатель, не папка). Извлеки `gitdir: <path>`. Из него выведи main repo path.
+   - Если не получилось — спроси: `Это git worktree. Какую папку считать корнем проекта? <предложи: ...>`.
+3. Иначе — поднимись от `cwd` пока не найдёшь `.git/` (папку, не файл) или `package.json` / `pyproject.toml` / любой явный маркер корня. Если ничего нет — `cwd` и есть корень.
 
-## Процесс
+**Имя проекта** = basename целевой папки. Покажи: `Имя проекта: <name> (целевая папка: <path>). Ок? (y/n или новое имя)`.
 
-### Шаг 1. Определи целевую папку и имя проекта
+## Фаза 1. Discovery (что уже есть в проекте)
 
-- **Целевая папка**: текущий `cwd`. Если она внутри `.claude/worktrees/...` — поднимись к корню репо.
-- **Имя проекта**: имя корневой папки (slug-friendly). Спроси подтверждение одной строкой: `Имя проекта: <name>. Ок?`. Если нет — спроси новое.
+Просканируй и **выведи отчёт пользователю** перед любыми действиями.
 
-### Шаг 2. Просканируй проект
+### 1a. Существующие паспорта (миграция)
 
-Прочитай эти файлы если есть:
-- `package.json`, `pyproject.toml`, `requirements.txt`, `go.mod`, `Cargo.toml`, `pom.xml` — стек
-- `README.md` — описание
-- `.env.example`, `.env.template` — env vars
-- `Dockerfile`, `docker-compose.yml`, `railway.json`, `vercel.json` — деплой
-- `CLAUDE.md`, `.planning/` — GSD статус
-- `.git/config` — remote
-- Сделай `git log --oneline -10` если репо
+Поищи (case-insensitive) в `<project_root>` и `<project_root>/docs/`:
+- `passport.md`, `PASSPORT.md`, `Passport.md`, `passport.MD` — варианты case
+- `PROJECT_PASSPORT.md`, `project_passport.md` — старая louise-система (`Claude Setup/`)
+- `*_passport.md`, `passport_*.md`
 
-Определи:
-- Язык, фреймворк, версии
-- Тип (`bot` если есть `aiogram`/`telegram`/`telethon`, `web` если `fastapi`/`flask`/`react`, `lib` если в `pyproject.toml` есть `[project]` без entry point, иначе `script`)
-- Точки входа (`main.py`, `app.py`, `bot.py`, `index.ts`, ...)
-- Менеджер пакетов (`uv`/`poetry`/`pip`/`npm`/`pnpm`/`bun`)
+Любой найденный — **кандидат на миграцию**, не конфликт-блокер.
 
-Если папка пустая или почти пустая — режим **новый проект**: задай 3 вопроса:
-1. Тип: `bot / web / lib / script`?
-2. Язык / фреймворк? (если bot — дефолт из `bot_defaults`)
-3. Назначение в одном предложении?
+### 1b. Документы которые могут содержать контекст
 
-### Шаг 3. Сохрани ручные правки (только режим update)
+Просканируй `*.md` в:
+- `<project_root>/` (корень)
+- `<project_root>/docs/`, `<project_root>/notes/`, `<project_root>/_docs/`
+- `<project_root>/.planning/` (GSD-документы)
 
-Прочитай существующий `passport.md`. Извлеки:
-- Секцию 8 «Контекст для промптов» целиком
-- Секцию 10 «Текущее состояние» целиком
-- Историю версий (секция 11)
+Распознай семантически по имени (case-insensitive substring):
+| В имени есть | Категория |
+|---|---|
+| `readme` | Описание / overview |
+| `architecture`, `design`, `arch` | Архитектура |
+| `overview`, `context`, `intro` | Контекст |
+| `notes`, `ideas` | Заметки |
+| `decisions`, `adr`, `rfc` | Решения |
+| `roadmap`, `plan` | Планы |
+| `todo`, `tasks`, `backlog` | Задачи |
+| `bugs`, `issues`, `known-issues` | Проблемы |
+| `changelog`, `history` | История |
+| `claude` (CLAUDE.md, claude-rules.md) | Правила для AI |
 
-В новом паспорте эти три секции **не перезаписывай авто-генерацией**:
-- Секции 8 и 10 — оставь точно как были (пользователь редактирует руками).
-- В секции 11 добавь строку с сегодняшней датой и кратким описанием обновления.
+Прочитай **первые 50 строк** каждого найденного файла — для понимания.
 
-### Шаг 4. Сгенерируй passport.md
+### 1c. Маркеры стека
 
-Возьми шаблон `<skills_repo>\templates\passport.md`. Заполни секции 1-7, 9 на основе сканирования. Секции 8 и 10:
-- **Init**: оставь шаблонные подсказки, добавь TODO-маркер `<!-- TODO louise: заполни секцию 8 — это самая важная часть -->`.
-- **Update**: подставь сохранённый текст.
+Прочитай если есть:
+- `package.json`, `pyproject.toml`, `requirements.txt`, `go.mod`, `Cargo.toml`, `pom.xml`
+- `Dockerfile`, `docker-compose.yml`, `railway.json`, `vercel.json`
+- `.env.example`, `.env.template` (не `.env`!)
 
-Frontmatter:
-- `created` — из существующего файла или сегодня
-- `updated` — сегодня (`2026-05-09` формат)
-- `mm_version` — из mm-config
+### 1d. Git-контекст
 
-Сохрани в `<project_root>/passport.md`.
+```bash
+git rev-parse --show-toplevel
+git remote -v
+git branch --show-current
+git log --oneline -10
+```
 
-### Шаг 5. Создай структуру в Obsidian
+### 1e. Системы которые могут конфликтовать
 
-Путь: `<obsidian_projects>/<project_name>/`
+- `.planning/` → проект использует GSD. Не конфликтуй, дополняй (паспорт mm = высокоуровневый, GSD-документы = пофазовые).
+- `CLAUDE.md` → читай, оценивай размер: маленький (< 30 строк) — добавим секцию; большой — спросим перед добавлением.
+- `passport.md` (точное совпадение) → режим update, см. фазу 3.
 
-Создай директории если нет:
-- `<project>/` (корень)
-- `<project>/sessions/`
-- `<project>/prompts/` (для удачных промптов вручную)
-- `<project>/snapshots/` (для context-snapshots при handoff)
+### 1f. Вывод фазы Discovery (покажи пользователю)
 
-Скопируй (Read + Write):
-- `passport.md` → `<project>/passport.md`
+```
+🔍 Discovery: <project_name>
 
-Создай если нет:
-- `<project>/dashboard.md` — короткий «текущий статус»:
+Целевая папка: <abs_path>
+Git: <branch>, <N> коммитов, remote: <url или local>
+
+Найдено существующих паспортов:
+  • PROJECT_PASSPORT.md  ← старая louise-система, можно мигрировать
+  • passport.md          ← текущий формат, режим update
+  (или: «не найдено»)
+
+Найдено документов с контекстом:
+  • README.md (описание)
+  • docs/architecture.md (архитектура)
+  • NOTES.md (заметки)
+  • .planning/ (GSD: 3 фазы)
+  (используются ТОЛЬКО для чтения — не будут изменены)
+
+Стек определён:
+  • Язык: Python 3.12
+  • Фреймворк: aiogram 3.x
+  • DB: SQLite
+  • Тип: bot
+
+Существующий CLAUDE.md: <нет / <N> строк, добавлю секцию mm-system / большой — спрошу>
+```
+
+## Фаза 2. Решения (если нужны)
+
+Задай только реально неопределённые вопросы (максимум 3-4):
+
+1. **Если найден PROJECT_PASSPORT.md** или другой кандидат миграции:
+   `Найден старый паспорт <file>. Мигрировать его контент в новый passport.md? (y = мигрировать, переименую старый в .legacy / n = игнорировать)`
+
+2. **Если есть passport.md И он явно устарел** (mtime старше 30 дней или git log показывает много коммитов после updated):
+   Просто переходи в режим update без вопроса.
+
+3. **Если CLAUDE.md > 30 строк**:
+   `CLAUDE.md существует и непустой (<N> строк). Добавить секцию ## mm-system в конец? (y/n)`
+
+4. **Если папка пустая** (новый проект):
+   - Тип: bot / web / lib / script?
+   - Язык / фреймворк? (для bot — дефолт `aiogram` из bot_defaults)
+   - Назначение в одном предложении?
+
+5. **Если в Obsidian уже есть `<obsidian_projects>/<name>/`**:
+   `Папка в Obsidian уже есть (<N файлов). Update (y) / Создать <name>-2 (n) / Отмена (c)?`
+
+Если пользователь говорит «решай сам» — выбирай разумный дефолт, отмечай в финальном отчёте `<assumed: ...>`.
+
+## Фаза 3. План записи (Preview / Dry-run)
+
+**Это обязательная фаза. Без подтверждения — НИЧЕГО не пишется.**
+
+Покажи пользователю полный план в формате:
+
+```
+📋 План записи
+
+СОЗДАМ:
+  + <project>/passport.md (новый файл, <N> секций)
+    Источники контента: README.md (overview), package.json (стек),
+                        docs/architecture.md (раздел 3),
+                        PROJECT_PASSPORT.md (миграция: разделы 8, 10, 11)
+  + <obsidian>/Projects/<name>/passport.md (копия)
+  + <obsidian>/Projects/<name>/dashboard.md (новый, скелет)
+  + <obsidian>/Projects/<name>/project-instructions.md (для claude.ai)
+  + <obsidian>/Projects/<name>/sessions/ (пустая папка)
+
+ИЗМЕНЮ:
+  ~ <project>/CLAUDE.md (добавлю секцию ## mm-system в конец, +12 строк)
+
+ПЕРЕИМЕНУЮ:
+  → PROJECT_PASSPORT.md → PROJECT_PASSPORT.md.legacy
+    (после миграции содержимого; оригинал не удаляется)
+
+НЕ ТРОНУ (для справки):
+  README.md, docs/architecture.md, NOTES.md, .planning/*, .env, src/
+
+Continue? (y / n / edit)
+```
+
+`edit` → дай возможность изменить план: «Не переименовывай PROJECT_PASSPORT» / «Не трогай CLAUDE.md» / «Не создавай dashboard» — пользователь редактирует список через простой dialog, ты применяешь.
+
+`n` → останови, ничего не пиши.
+
+`y` → переходи к фазе 4.
+
+## Фаза 4. Запись (atomic: всё или ничего)
+
+Делай в этом порядке. Если хоть один шаг падает — **откати уже сделанное** (удали созданные файлы, восстанови переименованный):
+
+### 4.1. Сгенерируй текст passport.md в памяти
+
+Возьми шаблон `<skills_repo>/templates/passport.md`. Заполни:
+
+- **Секции 1-7, 9** — из discovery (стек, архитектура, команды, конвенции из README, ENV из .env.example).
+- **Секция 8 «Контекст для промптов»**:
+  - Если миграция из PROJECT_PASSPORT.md и там есть аналогичный раздел — перенеси.
+  - Иначе оставь шаблон + `<!-- TODO louise: заполни секцию 8 — это критично, читается каждым промптом -->`.
+- **Секция 10 «Текущее состояние»**:
+  - Init: пустой шаблон.
+  - Update (есть passport.md): сохрани существующий текст 1:1.
+  - Migration: если в старом паспорте была секция «Текущее состояние / Status / Now» — перенеси.
+- **Секция 11 «История»**:
+  - Init: одна строка «<date> Initial».
+  - Update: добавь строку «<date> Refresh: <что обновилось>».
+  - Migration: «<date> Migrated from PROJECT_PASSPORT.md».
+
+Frontmatter: `created` из существующего файла или сегодня; `updated` = сегодня; `mm_version` из mm-config.
+
+### 4.2. Сгенерируй dashboard.md и project-instructions.md в памяти
+
+Шаблон dashboard см. ниже в Appendix.
+project-instructions: возьми `<skills_repo>/templates/project-instructions.md`, подставь `<PROJECT_NAME>`, добавь секцию «Особенности этого проекта» с топ-3 пунктами из секции 8 паспорта.
+
+### 4.3. Сгенерируй патч для CLAUDE.md (если нужен)
+
+Если CLAUDE.md существует **и** в нём нет строки `## mm-system` — добавь в конец:
+
+```markdown
+
+## mm-system
+
+Этот проект подключён к mm-системе.
+- Паспорт: `passport.md` (актуальный source-of-truth)
+- Obsidian: `<obsidian>/Projects/<name>/`
+- Skills: глобальные `mm-*` (см. `~/.claude/skills/`)
+- Конец сессии: `/mm-save-session`
+- Перед новым чатом claude.ai: `/mm-handoff`
+```
+
+Если CLAUDE.md нет — создай минимальный с этой секцией + первой строкой `# <name>`.
+
+### 4.4. Запиши всё
+
+В строгом порядке (с откатом при падении):
+1. Создай Obsidian-папку и подпапки sessions/.
+2. Запиши `<project>/passport.md`.
+3. Запиши `<obsidian>/.../passport.md` (копия).
+4. Запиши `<obsidian>/.../dashboard.md` (если не было).
+5. Запиши `<obsidian>/.../project-instructions.md`.
+6. Если есть PROJECT_PASSPORT.md и пользователь подтвердил миграцию — переименуй в `.legacy`.
+7. Применили патч к CLAUDE.md (если планировали).
+
+При ошибке на шагах 4-7: удали созданные файлы шагов 2-5, верни переименованный.
+
+### 4.5. Проверка инвариантов
+
+После записи проверь:
+- `passport.md` содержит все 11 секций.
+- Frontmatter валидный (parse YAML).
+- В Obsidian нет файлов с похожими именами (`passport.md` vs `passport_old.md`) — если есть, предупреди.
+
+## Фаза 5. Финальный отчёт
+
+```
+✅ mm-init-project завершён
+
+Режим: <init | update | migration>
+Проект: <name>
+Тип: <type> | Язык: <lang> | Стек: <главное>
+
+Записано:
+  ✓ <project>/passport.md
+  ✓ <obsidian>/Projects/<name>/passport.md
+  ✓ <obsidian>/Projects/<name>/dashboard.md
+  ✓ <obsidian>/Projects/<name>/project-instructions.md
+  ✓ <project>/CLAUDE.md (добавлена секция mm-system)
+
+Перенесено из старого паспорта (если миграция):
+  ✓ Секция «Контекст для промптов» (5 правил)
+  ✓ Секция «Текущее состояние» (3 пункта)
+  Старый файл переименован: PROJECT_PASSPORT.md.legacy
+
+Не тронуто:
+  README.md, docs/, NOTES.md, .planning/, .env
+
+Следующие шаги:
+  1. Открой passport.md, проверь секции 1-7 (заполнены автоматически — могут быть неточны)
+  2. Заполни секцию 8 «Контекст для промптов» — это критично
+  3. claude.ai → New Project «<name>»
+  4. Knowledge → загрузи passport.md и dashboard.md из Obsidian
+  5. Instructions → скопируй из project-instructions.md
+```
+
+## Edge cases
+
+- **Папка пустая, но git initialized без коммитов**: спрашивай как новый проект.
+- **Имя папки с пробелами / кириллицей**: используй для отображения как есть; для slug в Obsidian (имя папки) — транслит в kebab-case.
+- **Несколько языков** (моно-репо): тип = `multi`, перечисляй через запятую.
+- **Symlinks / junctions в проекте**: не следуй по ним (Get-Item Attributes & ReparsePoint).
+- **Скрытые .md** (`.DS_Store.md` или подобное мусорное): игнорируй файлы начинающиеся с точки (кроме `.planning/`).
+- **Очень большой проект** (> 1000 .md файлов): сканируй только корень + 1 уровень глубже + `docs/`. Не углубляйся.
+- **Vault недоступен** (путь из конфига не существует): останови, скажи `Obsidian vault не найден: <path>. Проверь mm-config.json или создай папку.`
+- **Существующий passport.md в Obsidian отличается от проекта** (рассинхрон): предупреди — какую версию считать source-of-truth? Дефолт: проектная версия выигрывает.
+
+## Что НЕ делать
+
+- Не делать `git init`, `git add`, `git commit`, `git push` — никаких git-операций.
+- Не читать значения из `.env`, `*.key`, `*.pem`, `secrets/`.
+- Не редактировать README.md, ARCHITECTURE.md и любые другие .md проекта (только passport.md и CLAUDE.md).
+- Не удалять файлы (только переименование с суффиксом `.legacy` при миграции).
+- Не пропускать фазу Preview — даже если кажется «и так всё ясно».
+- Не задавать больше 3-4 вопросов; для остального — разумные дефолты с пометкой `<assumed: ...>`.
+
+## Appendix: шаблон dashboard.md
 
 ```markdown
 ---
@@ -101,79 +328,17 @@ updated: <date>
 # <name> — Dashboard
 
 ## Сейчас
-<что в работе>
+<пусто на старте — обновляется через /mm-save-session>
 
 ## Последние сессии
-- [[sessions/<latest>]]
+- <будут появляться после /mm-save-session>
 
 ## Открытые вопросы
 - [ ] см. passport.md секция 10
 
 ## Ссылки
-- Код: `<абсолютный путь>`
+- Код: `<абсолютный путь к проекту>`
 - Паспорт: [[passport]]
 - Sessions: [[sessions/]]
+- Handoff (для нового чата claude.ai): [[handoff]]
 ```
-
-### Шаг 6. Сгенерируй project-instructions.md для claude.ai
-
-Прочитай `<skills_repo>\templates\project-instructions.md`. Подставь `<PROJECT_NAME>` на имя проекта. Сохрани в `<obsidian_projects>/<project_name>/project-instructions.md`.
-
-### Шаг 7. Обнови или создай CLAUDE.md в корне проекта
-
-Если `CLAUDE.md` существует — добавь секцию (если её ещё нет):
-
-```markdown
-## mm-system
-
-Этот проект подключён к mm-системе.
-- Паспорт: `passport.md` (актуальный source-of-truth)
-- Obsidian: `<obsidian_projects>/<project_name>/`
-- Skills: глобальные `mm-*` (см. `~/.claude/skills/`)
-- Конец сессии: `/mm-save-session`
-- Перед новым чатом claude.ai: `/mm-handoff`
-```
-
-Если `CLAUDE.md` нет — создай минимальный с этой секцией.
-
-### Шаг 8. Финальный отчёт
-
-Выведи (в отдельных блоках, не одной строкой):
-
-```
-✅ mm-init-project завершён
-
-Режим: <init | update>
-Проект: <name>
-Тип: <type> | Язык: <lang> | Стек: <главное>
-
-Создано / обновлено:
-- <project>/passport.md (<X секций заполнено / TODO в секции 8>)
-- <obsidian>/Projects/<name>/passport.md
-- <obsidian>/Projects/<name>/dashboard.md
-- <obsidian>/Projects/<name>/project-instructions.md
-- <project>/CLAUDE.md (секция mm-system)
-
-Следующие шаги:
-1. Открой passport.md и заполни секцию 8 «Контекст для промптов» — это критично
-2. claude.ai → New Project «<name>»
-3. Project Knowledge → загрузи passport.md и dashboard.md из Obsidian
-4. Project Instructions → скопируй текст из <obsidian>/Projects/<name>/project-instructions.md
-5. Готово — можно описывать идеи, claude.ai будет генерить промпты для меня
-```
-
-## Edge cases
-
-- **Папка вне Desktop / на другом диске**: всё равно работаешь, абсолютные пути из cwd.
-- **Имя проекта совпадает с существующим в Obsidian**: спроси — `Папка <obsidian>/Projects/<name>/ уже есть. Update (1) / Создать <name>-2 (2) / Отмена (3)?`
-- **Нет git**: пропусти git-секции, не падай.
-- **Несколько языков** (моно-репо): перечисли в стеке через запятую, типу присвой `multi`.
-- **Проект уже использует GSD** (есть `.planning/`): добавь в секцию 9 паспорта строку: `GSD: yes (см. .planning/STATE.md)`. Не конфликтуй с GSD — mm-система комплементарна.
-
-## Что НЕ делать
-
-- Не создавать новые `.git/`, не делать `git init` без явного запроса.
-- Не пушить ничего в remote.
-- Не трогать `secrets`, `.env`, не читать значения из `.env` (только имена).
-- Не переписывать секции 8 и 10 паспорта автоматически в режиме update.
-- Не задавать больше 3-4 вопросов подряд — для остального бери разумные дефолты.
