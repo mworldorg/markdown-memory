@@ -246,6 +246,7 @@ git push -u origin main
 
 ## См. также
 
+- [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) — **главный гайд:** как взять новый проект или мигрировать существующий за 15-30 минут (со всеми нюансами и rollback)
 - [`docs/CONFIG-LOADING.md`](docs/CONFIG-LOADING.md) — алгоритм поиска mm-config.json
 - [`docs/TG-BRIDGE.md`](docs/TG-BRIDGE.md) — опциональный Telegram-бот: setup и архитектура
 - [`MIGRATION.md`](MIGRATION.md) — миграция со старой папки `Claude Setup/`
