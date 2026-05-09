@@ -1,0 +1,58 @@
+# ============================================================================
+# claude-code-telegram .env template
+# Скопируй в external/claude-code-telegram/.env и заполни.
+# Источник правды по полям: README репо https://github.com/RichardAtCT/claude-code-telegram
+# ============================================================================
+
+# === ОБЯЗАТЕЛЬНОЕ ===
+
+# Токен от @BotFather (создай нового бота: /newbot, получи токен)
+TELEGRAM_BOT_TOKEN=BBBBBBBBBB:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+# Твой Telegram user_id (узнай: @userinfobot → /start). Можно несколько через запятую.
+# Без whitelist КТО УГОДНО кто узнает username бота сможет использовать его.
+ALLOWED_USERS=123456789
+
+# Корневая директория, в которой бот может работать (path sandboxing).
+# Любые попытки cd за пределы — заблокированы. Никаких C:\ как корня — сузь.
+APPROVED_DIRECTORY=C:\Users\louise\Desktop
+
+# === БЕЗОПАСНОСТЬ (критично — оставить включённым) ===
+
+# Лимит стоимости на пользователя в день в USD. Защита от runaway costs.
+# 10 USD/день для личного использования — разумно.
+CLAUDE_MAX_COST_PER_USER=10
+
+# Rate limit: запросов в минуту на пользователя.
+RATE_LIMIT_REQUESTS_PER_MINUTE=20
+
+# === ОПЦИОНАЛЬНОЕ ===
+
+# Голосовой ввод (требует Whisper или Voxtral API).
+# Оставь пустым если не нужно.
+WHISPER_API_KEY=
+VOXTRAL_API_KEY=
+
+# Webhook для GitHub events (HMAC-SHA256). Если не нужны GH-уведомления — оставь пустым.
+WEBHOOK_SECRET=
+WEBHOOK_PORT=8443
+
+# Cron-планировщик задач. Если не нужно — оставь пустым.
+CRON_ENABLED=false
+
+# Уровень логирования: DEBUG / INFO / WARNING / ERROR
+LOG_LEVEL=INFO
+
+# Где хранить SQLite базу сессий. Дефолт ./data/sessions.db
+DATABASE_URL=sqlite:///./data/sessions.db
+
+# === ИНТЕГРАЦИЯ С mm-системой (опциональное) ===
+
+# Webhook URL который mm-bridge будет POST'ить (если хочешь синхронизировать
+# промпты из claude.ai через TG-бот в новые Claude Code сессии).
+# Если оставишь пустым — mm-bridge просто пишет в файл как обычно.
+MM_BRIDGE_WEBHOOK_PATH=/mm-bridge
+
+# === НИКОГДА НЕ КОММИТИТЬ ЭТОТ ФАЙЛ ===
+# В .gitignore основного репо уже есть .env*, в louise-skills/.gitignore тоже.
+# external/claude-code-telegram/.env защищён их собственным .gitignore.

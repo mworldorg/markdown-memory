@@ -3,5 +3,10 @@
   "paths": {
     "obsidian_vault": "D:\\Sync\\ObsidianVault",
     "obsidian_claude_root": "D:\\Sync\\ObsidianVault\\Claude"
+  },
+  "tg_bridge": {
+    "enabled": true,
+    "bot_username": "@my_claude_bot",
+    "approved_directory": "C:\\Users\\louise\\Desktop"
   }
 }

@@ -144,6 +144,16 @@ Test-Path $item.Target  # должно быть true
 
 - **GSD hooks** в `~/.claude/hooks/` — должны быть в `settings.json` SessionStart/PreToolUse/PostToolUse. Уже проверено в этих секциях выше.
 
+- **Telegram bridge** (claude-code-telegram, опционально):
+  - Если в `mm-config.local.json` `tg_bridge.enabled = true`:
+    - ✅ `<repo>/external/claude-code-telegram/` существует
+    - ✅ `<repo>/external/claude-code-telegram/.env` существует
+    - ✅ В `.env` заполнены `TELEGRAM_BOT_TOKEN`, `ALLOWED_USERS`, `APPROVED_DIRECTORY` (НЕ читай значения — только проверь не пустые)
+    - ⚠️ Если `CLAUDE_MAX_COST_PER_USER` не задан — предупреди (риск runaway costs)
+    - ⚠️ Если `APPROVED_DIRECTORY = C:\` или другой слишком широкий путь — предупреди про безопасность
+    - 💡 Проверка процесса: `Get-Process python` — если ни одного `python.exe` процесса нет, бот может быть не запущен. Это просто намёк, не ошибка.
+  - Если `tg_bridge.enabled = false` или нет — пропусти. Это опциональная фича.
+
 ## Финальный отчёт
 
 ```

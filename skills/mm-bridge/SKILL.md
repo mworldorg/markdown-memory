@@ -1,7 +1,7 @@
 ---
 name: mm-bridge
-version: 0.3.0
-description: Compose a ready-to-copy prompt for the user's OTHER Claude Code instance (running in PowerShell). Use when the user asks to "напиши промпт для powershell", "сгенерируй задание для другого клода", "переброс задачи в основной клод", "/mm-bridge", or any request to hand off work to the PowerShell instance. Auto-reads passport.md of the target project to inject stack/conventions/constraints. Supports prompt frameworks (CRISPE / XML / PERSONA / HYPOTHESIS) via --framework flag or auto-detect. Writes to Claude/Bridge/next-prompt.md in the Obsidian vault and archives the previous prompt automatically.
+version: 0.4.0
+description: Compose a ready-to-copy prompt for the user's OTHER Claude Code instance (running in PowerShell). Use when the user asks to "напиши промпт для powershell", "сгенерируй задание для другого клода", "переброс задачи в основной клод", "/mm-bridge", or any request to hand off work to the PowerShell instance. Auto-reads passport.md of the target project to inject stack/conventions/constraints. Supports prompt frameworks (CRISPE / XML / PERSONA / HYPOTHESIS) via --framework flag or auto-detect. Writes to Claude/Bridge/next-prompt.md in the Obsidian vault. Optional --tg flag: also delivers prompt instructions via Telegram bot if mm-config.local.json has tg_bridge.enabled=true.
 ---
 
 # mm-bridge — Prompt Composer for PowerShell Claude Code
@@ -139,13 +139,37 @@ framework: <none | CRISPE | XML | PERSONA | HYPOTHESIS>
 Когда закончишь — выполни `/mm-save-session` чтобы залогировать сессию в Obsidian.
 ```
 
+### Шаг 4.5. Опциональный Telegram push (если --tg)
+
+Активируется при:
+- Юзер передал флаг `--tg` ИЛИ
+- В `mm-config.local.json` поле `tg_bridge.enabled = true` И юзер не передал `--no-tg`.
+
+Что делать:
+1. Прочитай `tg_bridge.bot_username` из конфига. Если пусто — пропусти этот шаг с warn.
+2. Проверь что бот установлен: `<repo>/external/claude-code-telegram/.env` существует.
+3. **Не пытайся напрямую обращаться к Telegram API** — у нас нет токена в этом контексте. Вместо этого:
+   - Сгенерируй короткое **TG-friendly** сообщение: компактный prompt-summary (1 экран в Telegram) + ссылка на цель проекта + reminder про работу через бота.
+   - Покажи юзеру **ready-to-paste** для отправки боту:
+     ```
+     📲 Для Telegram-бота (отправь <bot_username> такое сообщение):
+
+     /cd <project_path>
+     <короткий prompt summary, 5-10 строк>
+     ```
+4. Если флаг `--tg` И бот **не установлен** (нет `external/claude-code-telegram/.env`):
+   - Скажи: `TG bridge не установлен. Запусти scripts/install-tg-bridge.ps1 или см. docs/TG-BRIDGE.md`
+   - НЕ создавай файл вообще, верни ошибку — юзер явно просил TG.
+
 ### Шаг 5. Подтверди пользователю
 
 Одной строкой (не блоком):
 
 ```
-Готово: C:\Users\louise\Documents\Obsidian Vault\Claude\Bridge\next-prompt.md (framework: <name>, passport: <yes/no>, архив: <yes/no>). Скопируй и вставь в PowerShell.
+Готово: C:\Users\louise\Documents\Obsidian Vault\Claude\Bridge\next-prompt.md (framework: <name>, passport: <yes/no>, архив: <yes/no>, tg: <yes/no/skip>). Скопируй и вставь в PowerShell.
 ```
+
+Если был TG push — после этой строки добавь готовое сообщение для бота отдельным блоком.
 
 ## Стиль промпта
 
