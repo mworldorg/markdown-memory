@@ -108,6 +108,7 @@ copy config/mm-config.local.example.json config/mm-config.local.json
 |---|---|---|
 | `/mm` | — | Список всех команд |
 | `/mm new` | `/mm-init-project` | Инициализация / обновление проекта |
+| `/mm resume` | `/mm-resume` | «Где мы» — passport + last session + git + GSD-фаза |
 | `/mm prompt` | `/mm-bridge` | Промпт-мост в файл для PowerShell-Клода |
 | `/mm next` | `/mm-handoff` | Контекст в claude.ai заполнен — сводка для нового чата |
 | `/mm save` | `/mm-save-session` | Конец сессии — лог в Obsidian |
@@ -115,6 +116,28 @@ copy config/mm-config.local.example.json config/mm-config.local.json
 | `/mm check` | `/mm-doctor` | Самопроверка: junction'ы, vault, конфиг, паспорта |
 
 Полные имена тоже всегда работают.
+
+## Типичный цикл работы
+
+```
+утром / после /clear  →  /mm resume    ← восстановил контекст за 2 секунды
+работаешь             →  ... (или /mm prompt если из claude.ai)
+закончил день         →  /mm save      ← лог в Obsidian
+контекст забит        →  /mm save → /clear → /mm resume
+новый чат claude.ai   →  /mm next      ← handoff в Project Knowledge
+```
+
+## /compact vs /clear vs exit&claude
+
+| Ситуация | Лучшее действие |
+|---|---|
+| Контекст < 70%, задача та же | `/compact` |
+| Контекст > 70%, та же задача — нужен свежий контекст | `/mm save` → `/clear` → `/mm resume` |
+| Закончил веху, новая задача | `/mm save` → `/clear` |
+| Странное поведение, что-то залипло | `exit` → `claude` → `/mm resume` |
+| Меняешь проект (cd в другой) | `exit` → `claude` → `/mm resume` |
+
+**Никогда** не делай `/clear` без `/mm save` сначала — потеряешь контекст текущей сессии. Лог в Obsidian = твоя страховка.
 
 ---
 
