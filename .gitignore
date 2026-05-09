@@ -27,3 +27,6 @@ __pycache__/
 *.pem
 *.kdbx
 config/*.local.json
+
+# External dependencies (клонированные репо третьих сторон)
+external/

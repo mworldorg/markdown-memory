@@ -153,6 +153,7 @@ copy config/mm-config.local.example.json config/mm-config.local.json
 | **GSD** (`.planning/` или `.gsd/`) | `/gsd-*` команды | Пофазовое планирование внутри milestone | Активно во время разработки крупной фичи |
 | **context-mode** (MCP, плагин) | Хуки автоматом → SQLite в `~/.claude/context-mode/` | События сессии по 15 категориям, restore после `/compact` и рестарта | Постоянно сама |
 | **karpathy-guidelines** (плагин) | — (поведенческие правила) | 4 принципа кодинга | Применяются при каждом написании кода |
+| **Telegram bridge** (опционально) | claude-code-telegram бот | Канал push'а задач из Telegram → новая Claude сессия | По запросу с телефона |
 
 **Правила использования:**
 - **Маленький / средний проект** — только mm. GSD оверкилл.
@@ -170,11 +171,36 @@ claude plugin install andrej-karpathy-skills@karpathy-skills
 # context-mode — экономия контекстного окна, persistent memory сессий, sandbox для кода
 claude plugin marketplace add mksglu/context-mode
 claude plugin install context-mode@context-mode
+
+# Telegram bridge (опционально — push prompt с телефона, см. docs/TG-BRIDGE.md)
+pwsh scripts/install-tg-bridge.ps1
+# затем заполни external/claude-code-telegram/.env, см. инструкцию в скрипте
 ```
 
 После установки `/mm check` подтвердит что всё подцепилось.
 
 **context-mode хуки и GSD хуки сосуществуют** — context-mode подключает свои хуки через plugin manifest, GSD — через `~/.claude/settings.json`. Claude Code запускает оба набора параллельно для одного события. Никаких ручных правок не требуется.
+
+## Telegram bridge — отдельный канал к Claude Code
+
+Для push'а задач с телефона (новая Claude сессия в указанной папке) — поставь TG-бот:
+
+```powershell
+pwsh scripts/install-tg-bridge.ps1
+```
+
+Скрипт клонирует [RichardAtCT/claude-code-telegram](https://github.com/RichardAtCT/claude-code-telegram), создаёт `.venv`, кладёт `.env` шаблон. Дальше — получаешь токен у @BotFather, узнаёшь свой user_id, заполняешь `.env`, запускаешь.
+
+Когда использовать:
+- 📱 На улице с телефоном — «обнови README», «прогон тестов»
+- ⏰ Cron — например, ежедневный `/mm check`
+- 🤖 Автономные задачи без надзора
+
+Когда **не** использовать:
+- 💬 Интерактивная работа в текущей PowerShell-сессии — копипаст эффективнее (warm контекст не теряется)
+- 🔒 Чувствительные репо — Telegram-аккаунт можно угнать через SIM swap
+
+Полная инструкция и архитектура: [docs/TG-BRIDGE.md](docs/TG-BRIDGE.md).
 
 ---
 

@@ -45,5 +45,12 @@
     "url": null,
     "enabled": false,
     "fallback_dir": "C:\\Users\\louise\\Documents\\Obsidian Vault\\Claude\\Inbox"
+  },
+  "tg_bridge": {
+    "enabled": false,
+    "bot_username": null,
+    "approved_directory": null,
+    "external_dir": "external\\claude-code-telegram",
+    "_comment": "Включай через mm-config.local.json (см. mm-config.local.example.json и docs/TG-BRIDGE.md). Этот файл committed — секреты не клади. Бот сам читает токен из своего .env."
   }
 }
