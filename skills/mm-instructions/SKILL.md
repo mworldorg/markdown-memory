@@ -1,5 +1,6 @@
 ---
 name: mm-instructions
+version: 0.2.0
 description: Генерирует текст для claude.ai → Project → Instructions из шаблона + персонализирует под текущий проект. Кладёт результат в Obsidian для копипаста. Use when user says "сделай инструкции для проекта", "обнови project instructions", "/mm-instructions", "перегенери инструкции", "что вставить в Project Instructions". Без аргументов = универсальная версия; с проектом = подставляет имя.
 ---
 
@@ -9,11 +10,13 @@ description: Генерирует текст для claude.ai → Project → In
 
 ## Конфиг
 
-Прочитай `C:\Users\louise\Desktop\louise-skills\config\mm-config.json`:
-- `paths.skills_repo` (для шаблона)
+Загрузи `mm-config.json` по алгоритму из `<repo>/docs/CONFIG-LOADING.md`. Поддержка `mm-config.local.json` overlay обязательна. `<repo>` берётся из `_repo_root` инжектированного в конфиг loader'ом.
+
+Понадобятся:
 - `paths.obsidian_projects`
 - `paths.obsidian_bridge` (универсальная версия идёт сюда)
 - `default_language`
+- `_repo_root` (для шаблона `templates/project-instructions.md`)
 
 ## Режимы
 

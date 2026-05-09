@@ -1,0 +1,7 @@
+{
+  "$comment": "Скопируй этот файл в mm-config.local.json (gitignored) и переопредели то, что отличается на этой машине. Local перекрывает основной конфиг по deep-merge.",
+  "paths": {
+    "obsidian_vault": "D:\\Sync\\ObsidianVault",
+    "obsidian_claude_root": "D:\\Sync\\ObsidianVault\\Claude"
+  }
+}

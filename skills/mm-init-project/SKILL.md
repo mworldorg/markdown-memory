@@ -1,6 +1,7 @@
 ---
 name: mm-init-project
-description: Инициализирует или обновляет проект для mm-системы — создаёт passport.md в корне, копию в Obsidian, dashboard.md, project-instructions.md для claude.ai. Use when user says "оформи проект", "сделай паспорт", "init project", "/mm-init", "/mm-init-project", "обнови паспорт", "регистрирую проект". Работает на пустой папке (новый проект) и на существующем коде с любыми .md файлами (auto-discovery + dry-run preview перед записью).
+version: 0.2.0
+description: Инициализирует или обновляет проект для mm-системы — создаёт passport.md в корне, копию в Obsidian, dashboard.md, project-instructions.md для claude.ai. Use when user says "оформи проект", "сделай паспорт", "init project", "/mm-init", "/mm-init-project", "обнови паспорт", "регистрирую проект". Работает на пустой папке (новый проект) и на существующем коде с любыми .md файлами (auto-discovery + dry-run preview перед записью). Включает secret-grep и детектор рассинхрона между копиями паспорта.
 ---
 
 # mm-init-project — Project Bootstrap & Refresh (safe edition)
@@ -32,9 +33,11 @@ description: Инициализирует или обновляет проект
 
 ## Конфиг
 
-Прочитай `C:\Users\louise\Desktop\louise-skills\config\mm-config.json`. Понадобится:
+Загрузи `mm-config.json` по алгоритму из `<repo>/docs/CONFIG-LOADING.md`. Поддержка `mm-config.local.json` overlay обязательна. `<repo>` берётся из `_repo_root` инжектированного loader'ом.
+
+Понадобятся:
 - `paths.obsidian_projects`
-- `paths.skills_repo`
+- `_repo_root` (для `templates/passport.md` и `templates/project-instructions.md`)
 - `bot_defaults.*`
 - `default_language`
 
@@ -108,6 +111,24 @@ git log --oneline -10
 - `.planning/` → проект использует GSD. Не конфликтуй, дополняй (паспорт mm = высокоуровневый, GSD-документы = пофазовые).
 - `CLAUDE.md` → читай, оценивай размер: маленький (< 30 строк) — добавим секцию; большой — спросим перед добавлением.
 - `passport.md` (точное совпадение) → режим update, см. фазу 3.
+
+### 1f. Sync-check между копиями паспорта
+
+Если есть и `<project_root>/passport.md` И `<obsidian>/Projects/<name>/passport.md`:
+- Сравни sha256 содержимого (или хотя бы mtime + size).
+- Если **расходятся** — это значит юзер редактировал одну из копий (например в Obsidian app). Покажи в Discovery:
+  ```
+  ⚠️ Рассинхрон: passport.md в проекте и в Obsidian отличаются.
+     Проект:  updated <date>, sha <hex8>
+     Obsidian: updated <date>, sha <hex8>
+
+     Какую версию считать source-of-truth?
+     [1] Проект (Obsidian перезапишется) — дефолт
+     [2] Obsidian (проект перезапишется)
+     [3] Show diff first
+     [4] Cancel
+  ```
+- Запомни выбор для фазы 4 (write).
 
 ### 1f. Вывод фазы Discovery (покажи пользователю)
 
@@ -258,12 +279,42 @@ project-instructions: возьми `<skills_repo>/templates/project-instructions
 
 При ошибке на шагах 4-7: удали созданные файлы шагов 2-5, верни переименованный.
 
-### 4.5. Проверка инвариантов
+### 4.5. Проверка инвариантов + secret-grep
 
 После записи проверь:
 - `passport.md` содержит все 11 секций.
 - Frontmatter валидный (parse YAML).
 - В Obsidian нет файлов с похожими именами (`passport.md` vs `passport_old.md`) — если есть, предупреди.
+
+**Secret-grep (критично — passport едет в claude.ai):**
+
+Прогони passport.md через regex-поиск потенциальных секретов:
+
+| Pattern | Что ловит |
+|---|---|
+| `[A-Za-z0-9_\-]{32,}` где есть и буквы и цифры | API tokens, hash'и |
+| `(?i)(api[_-]?key|secret|password|token|bearer)[\s:=]+\S+` | Явные ключи |
+| `[0-9]{8,12}:[A-Za-z0-9_\-]{30,}` | Telegram bot tokens |
+| `sk-[A-Za-z0-9]{20,}` | OpenAI keys |
+| `ghp_[A-Za-z0-9]{30,}` / `gho_` / `ghs_` | GitHub tokens |
+| `xox[baprs]-[A-Za-z0-9-]{10,}` | Slack tokens |
+| `https?://[^\s]*:[^@\s/]+@` | URL'ы с inline credentials |
+
+Если что-то нашёл — **не молчи, не удаляй сам**. Покажи:
+```
+⚠️ В passport.md найдено что выглядит как секрет:
+   Строка 47: TELEGRAM_TOKEN=12345...
+   Строка 53: api_key: sk-abc123...
+
+   passport.md загружается в claude.ai Project Knowledge → попадёт во внешний сервис.
+
+   Действия:
+   [1] Удалю секреты сам, оставлю плейсхолдер `<REDACTED>` — рекомендуется
+   [2] Покажу строки, я отредактирую вручную, перезапусти /mm-init-project
+   [3] Игнорировать (например это пример из docs)
+```
+
+Только после ответа юзера продолжай.
 
 ## Фаза 5. Финальный отчёт
 

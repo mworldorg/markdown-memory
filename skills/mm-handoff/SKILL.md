@@ -1,11 +1,14 @@
 ---
 name: mm-handoff
+version: 0.2.0
 description: Генерирует handoff.md — компактную сводку для нового чата claude.ai когда контекст текущего заполнился. Включает выжимку последних сессий, текущее состояние, открытые вопросы. Use when user says "контекст заполнен", "новый чат", "handoff", "сводка для нового чата", "/mm-handoff", "пора закругляться, готовь следующий чат". НЕ путать с mm-save-session — этот про подготовку СЛЕДУЮЩЕГО чата, save-session про закрытие текущего.
 ---
 
 # mm-handoff — Snapshot for Next claude.ai Chat
 
-Решает проблему: контекст в чате claude.ai заполнен. Вместо того чтобы Anthropic Memory медленно собиралась, мы строим компактный snapshot одним файлом, который догружается в Project Knowledge нового чата.
+Решает проблему: контекст в чате claude.ai заполнен. Дополняет Anthropic Memory структурированным компактным snapshot'ом, который загружается в Project Knowledge.
+
+**Memory vs Handoff:** Memory (Anthropic, авто) хранит долгосрочные факты о тебе и проекте. Handoff (этот skill, ручной) — свежий контекст за 1-2 недели: что сделано, что в работе, что открыто. Не конкурируют — дополняют.
 
 ## Когда вызывать
 
@@ -15,7 +18,9 @@ description: Генерирует handoff.md — компактную сводк
 
 ## Конфиг
 
-Прочитай `C:\Users\louise\Desktop\louise-skills\config\mm-config.json`:
+Загрузи `mm-config.json` по алгоритму из `<repo>/docs/CONFIG-LOADING.md`. Поддержка `mm-config.local.json` overlay обязательна.
+
+Понадобятся:
 - `paths.obsidian_projects`
 - `paths.obsidian_sessions`
 

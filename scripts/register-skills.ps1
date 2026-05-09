@@ -1,5 +1,6 @@
 # register-skills.ps1
 # Creates NTFS junctions from louise-skills/skills/<name>/ to ~/.claude/skills/<name>/
+# Also sets MM_REPO_ROOT user env var so mm-* skills find config portably.
 # Run after adding/removing a skill folder, or after `git pull`.
 # Idempotent: skips if junction already correct, recreates if wrong target.
 
@@ -12,8 +13,25 @@ $TargetRoot = Join-Path $env:USERPROFILE ".claude\skills"
 if (-not (Test-Path $SourceDir))  { throw "Source dir not found: $SourceDir" }
 if (-not (Test-Path $TargetRoot)) { throw "Target dir not found: $TargetRoot (Claude Code not installed?)" }
 
+Write-Host "Repo:   $RepoRoot"
 Write-Host "Source: $SourceDir"
 Write-Host "Target: $TargetRoot"
+Write-Host ""
+
+# --- MM_REPO_ROOT env var (User scope, persistent across sessions) ---
+$existingEnv = [Environment]::GetEnvironmentVariable("MM_REPO_ROOT", "User")
+if ($existingEnv -ieq $RepoRoot) {
+    Write-Host "[env]  MM_REPO_ROOT already set to this repo" -ForegroundColor DarkGray
+} elseif ($existingEnv) {
+    Write-Host "[env]  MM_REPO_ROOT was set to: $existingEnv" -ForegroundColor Yellow
+    Write-Host "[env]  Updating to: $RepoRoot" -ForegroundColor Yellow
+    [Environment]::SetEnvironmentVariable("MM_REPO_ROOT", $RepoRoot, "User")
+    $env:MM_REPO_ROOT = $RepoRoot
+} else {
+    [Environment]::SetEnvironmentVariable("MM_REPO_ROOT", $RepoRoot, "User")
+    $env:MM_REPO_ROOT = $RepoRoot
+    Write-Host "[env]  Set MM_REPO_ROOT = $RepoRoot (User scope)" -ForegroundColor Green
+}
 Write-Host ""
 
 $skills = Get-ChildItem -Directory $SourceDir

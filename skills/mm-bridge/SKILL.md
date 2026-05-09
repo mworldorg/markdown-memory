@@ -1,5 +1,6 @@
 ---
 name: mm-bridge
+version: 0.2.0
 description: Compose a ready-to-copy prompt for the user's OTHER Claude Code instance (running in PowerShell). Use when the user asks to "напиши промпт для powershell", "сгенерируй задание для другого клода", "переброс задачи в основной клод", "/mm-bridge", or any request to hand off work to the PowerShell instance. Auto-reads passport.md of the target project to inject stack/conventions/constraints. Writes to Claude/Bridge/next-prompt.md in the Obsidian vault and archives the previous prompt automatically. The PowerShell instance has zero memory of this conversation, so the prompt MUST be self-contained.
 ---
 
@@ -11,7 +12,9 @@ PowerShell-инстанс **не видел** этот разговор. Каж�
 
 ## Конфиг
 
-Прочитай `C:\Users\louise\Desktop\louise-skills\config\mm-config.json`:
+Загрузи `mm-config.json` по алгоритму из `<repo>/docs/CONFIG-LOADING.md` (env `MM_REPO_ROOT` → resolve junction → fallback). Поддержка `mm-config.local.json` overlay обязательна.
+
+Понадобятся ключи:
 - `paths.obsidian_bridge` — куда писать `next-prompt.md`
 - `paths.obsidian_bridge_archive` — куда переносить старые промпты
 - `default_language` — `ru` по умолчанию

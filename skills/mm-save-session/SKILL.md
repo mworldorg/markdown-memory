@@ -1,5 +1,6 @@
 ---
 name: mm-save-session
+version: 0.2.0
 description: Закрывает текущую Claude Code сессию — сохраняет лог в Obsidian/Claude/Sessions/, обновляет project note, обновляет INDEX.md. Use when user says "закругляемся", "сохрани", "до завтра", "конец дня", "save session", "/mm-save-session", "закрываемся". Замена ручных правил из глобального CLAUDE.md — теперь это настоящий skill, не забудется.
 ---
 
@@ -9,7 +10,9 @@ description: Закрывает текущую Claude Code сессию — со
 
 ## Конфиг
 
-Прочитай `C:\Users\louise\Desktop\louise-skills\config\mm-config.json`:
+Загрузи `mm-config.json` по алгоритму из `<repo>/docs/CONFIG-LOADING.md`. Поддержка `mm-config.local.json` overlay обязательна.
+
+Понадобятся:
 - `paths.obsidian_sessions`
 - `paths.obsidian_projects`
 - `paths.obsidian_index`
