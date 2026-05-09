@@ -478,7 +478,7 @@ project-instructions: возьми `<skills_repo>/templates/project-instructions
 
 - Не делать `git init`, `git add`, `git commit`, `git push` — никаких git-операций.
 - Не читать значения из `.env`, `*.key`, `*.pem`, `secrets/`.
-- Не редактировать README.md, ARCHITECTURE.md и любые другие .md проекта (только passport.md и CLAUDE.md).
+- Не редактировать README.md, ARCHITECTURE.md и любые другие .md **в корне проекта** (только passport.md и CLAUDE.md). Файлы внутри Obsidian-папки проекта — passport.md/dashboard.md/project-instructions.md — это разрешённый scope (см. контракт безопасности в начале skill).
 - Не удалять файлы (только переименование с суффиксом `.legacy` при миграции).
 - Не пропускать фазу Preview — даже если кажется «и так всё ясно».
 - Не задавать больше 3-4 вопросов; для остального — разумные дефолты с пометкой `<assumed: ...>`.

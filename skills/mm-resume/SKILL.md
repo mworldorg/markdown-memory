@@ -79,9 +79,9 @@ git stash list 2>/dev/null      # есть ли stash'ы
 
 1. **`.gsd/STATE.md`** (rendered dashboard от gsd CLI) — главное.
 2. **`.gsd/AGENTS.md`** — preferences для агентов (равно `CONTEXT.md` v1).
-3. **`.gsd/gsd.db`** (SQLite) — опционально, если есть `sqlite3` в PATH:
+3. **`.gsd/gsd.db`** (SQLite) — опционально, если есть `sqlite3` в PATH. Используй абсолютный путь от `<project_root>`:
    ```bash
-   sqlite3 .gsd/gsd.db "SELECT name, status FROM milestones WHERE active=1; SELECT name, status FROM slices WHERE milestone_id=(SELECT id FROM milestones WHERE active=1); SELECT title, status FROM tasks WHERE slice_id=(SELECT id FROM slices WHERE active=1) LIMIT 10;"
+   sqlite3 "<project_root>/.gsd/gsd.db" "SELECT name, status FROM milestones WHERE active=1; SELECT name, status FROM slices WHERE milestone_id=(SELECT id FROM milestones WHERE active=1); SELECT title, status FROM tasks WHERE slice_id=(SELECT id FROM slices WHERE active=1) LIMIT 10;"
    ```
    Парси вывод. Если sqlite3 недоступен — пропусти, сводка будет беднее но не сломается.
 

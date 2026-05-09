@@ -1,6 +1,6 @@
 # Local dev
 .env
-.env.local
+.env.*
 *.log
 *.tmp
 
@@ -30,3 +30,6 @@ config/*.local.json
 
 # External dependencies (клонированные репо третьих сторон)
 external/
+
+# Claude Code local settings (приватные настройки worktree/проекта)
+.claude/

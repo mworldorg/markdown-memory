@@ -1,6 +1,6 @@
 {
-  "$schema": "./mm-config.schema.json",
-  "version": "0.1.0",
+  "_doc": "См. docs/CONFIG-LOADING.md для алгоритма загрузки. Машинно-специфичные overrides — в config/mm-config.local.json (gitignored).",
+  "version": "0.4.0",
   "namespace": "mm",
   "default_language": "ru",
   "user": {

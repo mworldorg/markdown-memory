@@ -15,25 +15,31 @@
 
 ```
 louise-skills/  (этот репо — source of truth)
-├── skills/
-│   ├── mm/                 ← диспетчер (/mm new, /mm save, /mm bridge, ...)
-│   ├── mm-init-project/    ← создать/обновить паспорт + Obsidian + claude.ai instructions
-│   ├── mm-bridge/          ← промпт-мост в файл (claude.ai → PowerShell)
-│   ├── mm-handoff/         ← сводка для нового чата claude.ai
-│   ├── mm-save-session/    ← закрыть сессию, лог в Obsidian
-│   ├── mm-instructions/    ← генерить Project Instructions
-│   └── mm-doctor/          ← самопроверка системы (junction'ы, конфиг, паспорта)
+├── skills/                          (8 mm-* skills, junction'ятся в ~/.claude/skills/)
+│   ├── mm/                          ← диспетчер (/mm new, /mm save, /mm bridge, ...)
+│   ├── mm-init-project/             ← создать/обновить паспорт + Obsidian + claude.ai instructions
+│   ├── mm-resume/                   ← «где мы» — passport + last session + git + GSD
+│   ├── mm-bridge/                   ← промпт-мост в файл (claude.ai → PowerShell)
+│   ├── mm-handoff/                  ← сводка для нового чата claude.ai (15-категорийная)
+│   ├── mm-save-session/             ← закрыть сессию, лог в Obsidian
+│   ├── mm-instructions/             ← генерить Project Instructions для claude.ai
+│   └── mm-doctor/                   ← самопроверка системы (junction'ы, конфиг, паспорта, GSD)
 ├── templates/
-│   ├── passport.md         ← стандарт паспорта (11 секций + privacy checklist)
-│   └── project-instructions.md  ← шаблон для claude.ai Instructions
+│   ├── passport.md                  ← стандарт паспорта (11 секций + privacy checklist)
+│   ├── project-instructions.md      ← шаблон для claude.ai Instructions
+│   ├── prompt-frameworks.md         ← CRISPE / XML / PERSONA / HYPOTHESIS для mm-bridge
+│   └── tg-bot-env.example           ← .env шаблон для Telegram bridge
 ├── config/
-│   ├── mm-config.json                ← committed: общие пути и дефолты
-│   └── mm-config.local.example.json  ← пример overrides для конкретной машины
+│   ├── mm-config.json               ← committed: общие пути и дефолты
+│   └── mm-config.local.example.json ← пример overrides для конкретной машины (gitignored)
 ├── docs/
-│   └── CONFIG-LOADING.md   ← как skills находят config (env / junction / fallback)
+│   ├── CONFIG-LOADING.md            ← как skills находят config (env / junction / fallback)
+│   └── TG-BRIDGE.md                 ← опциональная Telegram-bridge: setup и архитектура
 ├── scripts/
-│   └── register-skills.ps1 ← junction'ит skills/ + ставит MM_REPO_ROOT env var
-└── MIGRATION.md            ← миграция со старой системы Claude Setup/
+│   ├── register-skills.ps1          ← junction'ит skills/ + ставит MM_REPO_ROOT env var
+│   └── install-tg-bridge.ps1        ← опциональный setup Telegram-бота
+├── external/                        ← (gitignored) клоны третьих репо если установлены
+└── MIGRATION.md                     ← миграция со старой системы Claude Setup/
 ```
 
 **Source of truth:** этот git-репо.
@@ -218,7 +224,7 @@ pwsh scripts/install-tg-bridge.ps1
    ```yaml
    ---
    name: mm-<name>
-   version: 0.2.0
+   version: 0.4.0
    description: <короткое описание + триггер-фразы для авто-вызова>
    ---
    ```
@@ -241,6 +247,9 @@ git push -u origin main
 ## См. также
 
 - [`docs/CONFIG-LOADING.md`](docs/CONFIG-LOADING.md) — алгоритм поиска mm-config.json
+- [`docs/TG-BRIDGE.md`](docs/TG-BRIDGE.md) — опциональный Telegram-бот: setup и архитектура
 - [`MIGRATION.md`](MIGRATION.md) — миграция со старой папки `Claude Setup/`
 - [`templates/passport.md`](templates/passport.md) — формат паспорта проекта
 - [`templates/project-instructions.md`](templates/project-instructions.md) — шаблон для claude.ai
+- [`templates/prompt-frameworks.md`](templates/prompt-frameworks.md) — CRISPE/XML/PERSONA/HYPOTHESIS
+- [`templates/tg-bot-env.example`](templates/tg-bot-env.example) — шаблон .env для Telegram-бота

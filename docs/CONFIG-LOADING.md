@@ -40,7 +40,7 @@ $repoRoot = Split-Path -Parent (Split-Path -Parent $realPath)
 
 ### Шаг 3. Fallback на стандартный путь
 
-`C:\Users\louise\Desktop\louise-skills\config\mm-config.json` (исторический).
+`C:\Users\louise\Desktop\louise-skills\config\mm-config.json` — **легаси-путь именно для исходной машины louise**. На других машинах сюда попадать не должны (их `MM_REPO_ROOT` указывает на их клон). Этот fallback существует только для случая «разово сломалась env var».
 
 Если есть — используй, и **предупреди**: `Use $env:MM_REPO_ROOT to make this portable.`
 

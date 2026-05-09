@@ -1,6 +1,6 @@
 ---
 name: mm
-version: 0.2.0
+version: 0.4.0
 description: Диспетчер mm-системы — короткая команда вместо длинных. /mm без аргументов = список всех команд. /mm new = init project, /mm save = save session, /mm next = handoff, /mm prompt = bridge, /mm rules = instructions, /mm check = doctor. Use when user types "/mm" anything OR says "что есть в mm", "какие mm команды", "помощь по mm", "mm cheatsheet".
 ---
 
