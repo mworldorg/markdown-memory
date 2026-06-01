@@ -1,7 +1,7 @@
 ---
 name: mm-save-session
-version: 0.3.0
-description: Закрывает текущую Claude Code сессию — сохраняет лог в Obsidian/Claude/Sessions/, обновляет project note, обновляет INDEX.md. Если в проекте есть GSD (.planning/ или .gsd/) — также вызывает /gsd-pause-work для technical state в HANDOFF.json. Use when user says "закругляемся", "сохрани", "до завтра", "конец дня", "save session", "/mm-save-session", "закрываемся".
+version: 0.4.0
+description: Закрывает текущую Claude Code сессию — сохраняет лог в Obsidian/Claude/Sessions/, обновляет project note, обновляет INDEX.md, перегенерирует handoff.md (для Project Knowledge claude.ai) через /mm-handoff. Если в проекте есть GSD (.planning/ или .gsd/) — также вызывает /gsd-pause-work для technical state в HANDOFF.json. Use when user says "закругляемся", "сохрани", "до завтра", "конец дня", "save session", "/mm-save-session", "закрываемся".
 ---
 
 # mm-save-session — End-of-Session Logger
@@ -165,6 +165,18 @@ updated: <date>
 5. На `n` — продолжай без GSD-handoff, упомяни в финальном отчёте: «GSD handoff пропущен по запросу».
 6. Если `/gsd-pause-work` вернул ошибку — не падай, упомяни в отчёте: «GSD pause-work failed: <reason>», продолжай.
 
+### Шаг 5.6. Обнови handoff.md (для claude.ai Project Knowledge)
+
+**Цель:** `handoff.md` — это файл, который пользователь держит в Project Knowledge чата claude.ai. Он должен оставаться свежим после каждого закрытия сессии, без ручного `/mm next`.
+
+Алгоритм:
+1. Делегируй генерацию в `/mm-handoff` (он — единственный владелец формата handoff; не дублируй его логику здесь). Вызови skill `mm-handoff` — он прочитает только что записанную сессию + последние 3-5 + git + (если есть) GSD и **перезапишет** `<obsidian_projects>/<name>/handoff.md`.
+2. Это поведение **по умолчанию включено** (пользователь явно его просил) — не спрашивай y/n.
+3. Если `<obsidian_projects>/<name>/handoff.md` ещё скелет (после `/mm-init-project`) — `/mm-handoff` просто заменит его полноценной версией. Это нормально.
+4. Если `/mm-handoff` упал (нет паспорта, vault недоступен) — не падай, упомяни в финальном отчёте: «handoff обновить не удалось: <reason>», сессия всё равно сохранена.
+
+> Примечание: `/mm next` (= `/mm-handoff`) остаётся для ручного обновления handoff **посреди** работы, когда контекст забился, а сессию закрывать рано.
+
 ### Шаг 6. Подтверди
 
 Выведи (короткий блок, без воды):
@@ -176,6 +188,7 @@ updated: <date>
 Файл: <abs_path>/<session_file>
 Project note обновлён: <abs_path>
 INDEX.md обновлён.
+handoff.md обновлён: <да, через /mm-handoff | не удалось: <reason>>
 GSD handoff: <выполнен через /gsd-pause-work | пропущен | n/a — нет GSD>
 
 Открытых вопросов: <K>

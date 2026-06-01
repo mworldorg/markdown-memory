@@ -1,7 +1,7 @@
 ---
 name: mm-init-project
-version: 0.3.0
-description: Инициализирует или обновляет проект для mm-системы — создаёт passport.md в корне, копию в Obsidian, dashboard.md, project-instructions.md для claude.ai. Use when user says "оформи проект", "сделай паспорт", "init project", "/mm-init", "/mm-init-project", "обнови паспорт", "регистрирую проект". Работает на пустой папке (новый проект) и на существующем коде с любыми .md файлами (auto-discovery + dry-run preview перед записью). Включает auto-detect стека (~150 фреймворков), dual-detection GSD v1 (.planning/) и v2 (.gsd/), import scope/requirements из GSD-артефактов, secret-grep, детектор рассинхрона между копиями паспорта.
+version: 0.4.0
+description: Инициализирует или обновляет проект для mm-системы — создаёт passport.md в корне, копию в Obsidian, dashboard.md, handoff.md (скелет), project-instructions.md для claude.ai. Use when user says "оформи проект", "сделай паспорт", "init project", "/mm-init", "/mm-init-project", "обнови паспорт", "регистрирую проект". Работает на пустой папке (новый проект) и на существующем коде с любыми .md файлами (auto-discovery + dry-run preview перед записью). Включает auto-detect стека (~150 фреймворков), dual-detection GSD v1 (.planning/) и v2 (.gsd/), import scope/requirements из GSD-артефактов, secret-grep, детектор рассинхрона между копиями паспорта.
 ---
 
 # mm-init-project — Project Bootstrap & Refresh (safe edition)
@@ -15,6 +15,7 @@ description: Инициализирует или обновляет проект
 - `<project_root>/CLAUDE.md` — **только** добавляет секцию `## mm-system` если её нет; **никогда** не редактирует существующие секции
 - `<obsidian_projects>/<name>/passport.md` — копия
 - `<obsidian_projects>/<name>/dashboard.md` — создаёт если нет; в режиме update обновляет только `updated:` в frontmatter и секцию «Последние сессии»
+- `<obsidian_projects>/<name>/handoff.md` — создаёт **скелет** если нет; в режиме update НЕ перезаписывает существующий (его обновляет `/mm-save-session` и `/mm-handoff`)
 - `<obsidian_projects>/<name>/project-instructions.md` — пересоздаёт (это деривативный файл)
 
 **Skill ТОЛЬКО ЧИТАЕТ (никогда не редактирует):**
@@ -303,6 +304,7 @@ GSD detection:
                         PROJECT_PASSPORT.md (миграция: разделы 8, 10, 11)
   + <obsidian>/Projects/<name>/passport.md (копия)
   + <obsidian>/Projects/<name>/dashboard.md (новый, скелет)
+  + <obsidian>/Projects/<name>/handoff.md (новый, скелет — для Project Knowledge claude.ai)
   + <obsidian>/Projects/<name>/project-instructions.md (для claude.ai)
   + <obsidian>/Projects/<name>/sessions/ (пустая папка)
 
@@ -348,9 +350,12 @@ Continue? (y / n / edit)
 
 Frontmatter: `created` из существующего файла или сегодня; `updated` = сегодня; `mm_version` из mm-config.
 
-### 4.2. Сгенерируй dashboard.md и project-instructions.md в памяти
+### 4.2. Сгенерируй dashboard.md, handoff.md и project-instructions.md в памяти
 
-Шаблон dashboard см. ниже в Appendix.
+Шаблон dashboard и handoff (скелет) см. ниже в Appendix.
+
+**handoff.md — только скелет.** На init сессий ещё нет (или это первое подключение mm к существующему коду), поэтому богатый handoff генерить нечего. Кладём заглушку, чтобы файл существовал для Project Knowledge claude.ai и чтобы ссылка `[[handoff]]` в dashboard не висела битой. Полноценный handoff появится при первом `/mm-save-session` (он делегирует генерацию в `/mm-handoff`). В режиме **update**, если `handoff.md` уже есть — НЕ трогай его (там может быть свежий handoff).
+
 project-instructions: возьми `<skills_repo>/templates/project-instructions.md`, подставь `<PROJECT_NAME>`, добавь секцию «Особенности этого проекта» с топ-3 пунктами из секции 8 паспорта.
 
 ### 4.3. Сгенерируй патч для CLAUDE.md (если нужен)
@@ -378,11 +383,12 @@ project-instructions: возьми `<skills_repo>/templates/project-instructions
 2. Запиши `<project>/passport.md`.
 3. Запиши `<obsidian>/.../passport.md` (копия).
 4. Запиши `<obsidian>/.../dashboard.md` (если не было).
-5. Запиши `<obsidian>/.../project-instructions.md`.
-6. Если есть PROJECT_PASSPORT.md и пользователь подтвердил миграцию — переименуй в `.legacy`.
-7. Применили патч к CLAUDE.md (если планировали).
+5. Запиши `<obsidian>/.../handoff.md` **скелет** (только если файла ещё нет — существующий не трогай).
+6. Запиши `<obsidian>/.../project-instructions.md`.
+7. Если есть PROJECT_PASSPORT.md и пользователь подтвердил миграцию — переименуй в `.legacy`.
+8. Применили патч к CLAUDE.md (если планировали).
 
-При ошибке на шагах 4-7: удали созданные файлы шагов 2-5, верни переименованный.
+При ошибке на шагах 4-8: удали созданные файлы шагов 2-6, верни переименованный.
 
 ### 4.5. Проверка инвариантов + secret-grep
 
@@ -444,6 +450,7 @@ project-instructions: возьми `<skills_repo>/templates/project-instructions
   ✓ <project>/passport.md
   ✓ <obsidian>/Projects/<name>/passport.md
   ✓ <obsidian>/Projects/<name>/dashboard.md
+  ✓ <obsidian>/Projects/<name>/handoff.md (скелет — наполнится при первом /mm-save-session)
   ✓ <obsidian>/Projects/<name>/project-instructions.md
   ✓ <project>/CLAUDE.md (добавлена секция mm-system)
 
@@ -507,4 +514,40 @@ updated: <date>
 - Паспорт: [[passport]]
 - Sessions: [[sessions/]]
 - Handoff (для нового чата claude.ai): [[handoff]]
+```
+
+## Appendix: шаблон handoff.md (скелет на init)
+
+На init кладётся именно этот скелет. Полноценный handoff (15-категорийный snapshot, выжимка сессий, GSD-контекст) генерирует `/mm-handoff` — он вызывается автоматически из `/mm-save-session` и заменяет скелет при первом же сохранении сессии.
+
+```markdown
+---
+project: <name>
+generated: <date>
+covers_period: <date> — <date>
+sessions_summarized: 0
+---
+
+# Handoff: <name>
+
+> Этот файл загружается в Project Knowledge чата claude.ai вместе с passport.md.
+> Обновляется автоматически при `/mm-save-session` (или вручную через `/mm-handoff` / `/mm next`).
+
+## Сейчас в работе
+<свежий проект — наполнится после первой рабочей сессии>
+
+## Что сделано за период
+Свежий проект, истории сессий ещё нет — см. [[passport]].
+
+## Открытые вопросы
+- [ ] см. [[passport]] секция 10
+
+## Следующий логичный шаг
+<определится после первой сессии>
+
+## Где смотреть подробности
+- Паспорт: [[passport]]
+- Dashboard: [[dashboard]]
+- Sessions: [[sessions/]]
+- Код: `<абсолютный путь к проекту>`
 ```

@@ -84,9 +84,11 @@ copy config/mm-config.local.example.json config/mm-config.local.json
 
 ## B. Контекст в чате claude.ai заполнился
 
+> handoff.md создаётся скелетом ещё при `/mm new` и автоматически обновляется при каждом `/mm save`. `/mm next` нужен только чтобы обновить его **посреди** работы, не закрывая сессию.
+
 ```
 1. В Claude Code (PowerShell): /mm next   (синоним: /mm handoff)
-   → создаст handoff.md в <obsidian>/Projects/<имя>/
+   → обновит handoff.md в <obsidian>/Projects/<имя>/ (создаст, если его не было)
 2. claude.ai → этот же Project → Knowledge
    → удали старый handoff.md (если был)
    → загрузи новый
@@ -155,7 +157,7 @@ copy config/mm-config.local.example.json config/mm-config.local.json
 |---|---|---|---|
 | **Anthropic Memory** | Anthropic auto (в claude.ai Project) | Долгосрочные факты о тебе и проекте, выводы | Сама учится из чатов |
 | **Project Instructions** | `/mm rules` → копипаст | Правила: как Claude должен работать в этом Project | Один раз при создании Project + после крупных изменений паспорта |
-| **Project Knowledge (Files)** | `/mm new` + `/mm next` → копипаст из Obsidian | `passport.md` (структура) + `handoff.md` (свежий контекст) | passport — раз в неделю; handoff — перед каждым новым чатом |
+| **Project Knowledge (Files)** | `/mm new` + `/mm save` → копипаст из Obsidian | `passport.md` (структура) + `handoff.md` (свежий контекст) | passport — раз в неделю; handoff — авто при каждом `/mm save` (вручную `/mm next` посреди работы) |
 | **GSD** (`.planning/` или `.gsd/`) | `/gsd-*` команды | Пофазовое планирование внутри milestone | Активно во время разработки крупной фичи |
 | **context-mode** (MCP, плагин) | Хуки автоматом → SQLite в `~/.claude/context-mode/` | События сессии по 15 категориям, restore после `/compact` и рестарта | Постоянно сама |
 | **karpathy-guidelines** (плагин) | — (поведенческие правила) | 4 принципа кодинга | Применяются при каждом написании кода |

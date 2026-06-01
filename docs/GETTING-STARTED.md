@@ -180,7 +180,7 @@ Auto-detect стека (по `package.json` / `pyproject.toml` / `Cargo.toml` / 
 |---|---|---|
 | **Memory** | Ничего | Anthropic учится сама из чатов |
 | **Instructions** | Текст из `<obsidian>/Projects/<name>/project-instructions.md` | Ты, один раз через копипаст. Обновлять при сильных изменениях паспорта. |
-| **Files (Knowledge)** | `passport.md` + `dashboard.md` (+ `handoff.md` после первого `/mm next`) | Ты, через UI. passport обновлять раз в неделю, handoff — перед каждым новым чатом |
+| **Files (Knowledge)** | `passport.md` + `dashboard.md` + `handoff.md` (создаётся скелетом при `/mm new`, обновляется при каждом `/mm save`) | Ты, через UI. passport обновлять раз в неделю, handoff перезагружать когда садишься за новый чат |
 
 ## Что НЕ грузить в Files и почему
 
@@ -227,11 +227,12 @@ Auto-detect стека (по `package.json` / `pyproject.toml` / `Cargo.toml` / 
    /mm save
    → лог в Obsidian/Projects/<name>/sessions/
    → обновит dashboard.md
+   → обновит handoff.md (для Project Knowledge claude.ai)
    → если есть GSD: спросит вызвать /gsd-pause-work (скажи y)
 
-📲 Хочу новый чат claude.ai (контекст забит)
+📲 Хочу новый чат claude.ai (контекст забит, сессию закрывать рано)
    /mm next
-   → создаст свежий handoff.md
+   → обновит handoff.md прямо сейчас, не закрывая сессию
    → claude.ai → Project → Files → удали старый handoff.md → загрузи новый
    → New Chat в Project → "Прочитай handoff.md и passport.md, скажи где мы"
 
@@ -260,7 +261,7 @@ Auto-detect стека (по `package.json` / `pyproject.toml` / `Cargo.toml` / 
 |---|---|---|
 | `passport.md` (структура) | Сменился стек / конвенции / hot-paths | `/mm new` (режим update) |
 | `dashboard.md` (текущий статус) | Само через `/mm save` | — |
-| `handoff.md` (свежий контекст) | Перед каждым новым чатом claude.ai | `/mm next` |
+| `handoff.md` (свежий контекст) | Авто при каждом `/mm save`; вручную — посреди работы | `/mm save` (авто) / `/mm next` (вручную) |
 | `project-instructions.md` для claude.ai | Сильно поменялся паспорт | `/mm rules` → копипаст в Project Instructions |
 | GSD `.planning/*` | Через GSD-команды | `/gsd-*` |
 | Sessions log | Каждый раз в конце сессии | `/mm save` |
