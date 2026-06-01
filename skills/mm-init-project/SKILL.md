@@ -348,7 +348,7 @@ Continue? (y / n / edit)
   - Update: добавь строку «<date> Refresh: <что обновилось>».
   - Migration: «<date> Migrated from PROJECT_PASSPORT.md».
 
-Frontmatter: `created` из существующего файла или сегодня; `updated` = сегодня; `mm_version` из mm-config.
+Frontmatter: `created` из существующего файла или сегодня; `updated` = сегодня; `mm_version` = `config.version` из mm-config.json (подставь значение, не оставляй плейсхолдер `<MM_VERSION>`).
 
 ### 4.2. Сгенерируй dashboard.md, handoff.md и project-instructions.md в памяти
 

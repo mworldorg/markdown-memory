@@ -1,6 +1,7 @@
 {
   "_doc": "См. docs/CONFIG-LOADING.md для алгоритма загрузки. Машинно-специфичные overrides — в config/mm-config.local.json (gitignored).",
-  "version": "0.4.0",
+  "_version_note": "version — единый источник версии mm-системы (repo-wide release). passport.mm_version проставляется отсюда при /mm-init-project. Per-skill version: в SKILL.md — гранулярная история конкретного скилла, это не рассинхрон.",
+  "version": "0.5.0",
   "namespace": "mm",
   "default_language": "ru",
   "user": {

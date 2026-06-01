@@ -5,7 +5,7 @@ updated: <YYYY-MM-DD>
 type: <bot | web | lib | script | other>
 status: <active | paused | shipped | archived>
 language: <python | typescript | go | ...>
-mm_version: 0.3.0
+mm_version: <MM_VERSION>        # = config.version; проставляет mm-init-project, не хардкодить
 gsd_version: <none | v1 | v2>   # детектится автоматом по .planning/ vs .gsd/
 ---
 

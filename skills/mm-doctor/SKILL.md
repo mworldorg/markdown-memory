@@ -1,6 +1,6 @@
 ---
 name: mm-doctor
-version: 0.4.0
+version: 0.5.0
 description: Самопроверка mm-системы — junction'ы, конфиг, vault, паспорта, bridge-архив, GSD-консистентность (passport vs PROJECT.md), наличие сторонних плагинов (karpathy, context-mode). Auto-fix очевидного. Use when user says "проверь систему", "почему не работает", "/mm-doctor", "mm-status", "что-то сломалось", "проверь mm", "mm health". Запускать перед началом работы на новой машине ИЛИ когда что-то странно себя ведёт.
 ---
 
@@ -82,6 +82,7 @@ Test-Path $item.Target  # должно быть true
 
 Также проверь:
 - ⚠️ Есть `PROJECT_PASSPORT.md` (старый формат) → предложи мигрировать `/mm-init-project`
+- ✅ `<obsidian_projects>/<name>/handoff.md` существует (создаётся на `/mm-init-project`, обновляется на `/mm-save-session`). Если нет → `⚠️ handoff.md отсутствует — запусти /mm save (или /mm next) чтобы создать; он нужен для Project Knowledge claude.ai.`
 
 ### 6.1. GSD ↔ passport консистентность (если есть GSD)
 
@@ -112,12 +113,23 @@ Test-Path $item.Target  # должно быть true
 - Если git log показывает что любой mm-skill коммитил файлы в `.planning/*` за последние 30 дней → `❌ mm писал в .planning/ — это нарушение контракта. Откатить вручную.`
 - (это защита от будущих багов; mm-skills не должны это делать)
 
-### 7. Skills frontmatter
+**Проверка 6: GSD-директива есть в CLAUDE.md** (ретро-детектор)
+- Если `gsd_version != none`, проверь что `<project_root>/CLAUDE.md` содержит подблок `### GSD в этом проекте` (его добавляет `/mm-init-project` с версии 0.5.0).
+- Если блока нет → `⚠️ В проекте есть GSD, но в CLAUDE.md нет GSD-директивы (проект инициализирован старой версией mm). Запусти /mm-init-project (update) — добавит правило маршрутизации работы через GSD.`
+- Это закрывает вопрос «какие старые проекты надо обновить под новую GSD-интеграцию» — doctor находит их сам.
+
+### 7. Версии
+
+**Единый источник версии mm-системы — `config.version`** в `mm-config.json` (repo-wide release). Per-skill `version:` в каждом `SKILL.md` — гранулярная история конкретного скилла; **разные per-skill версии это норма, не рассинхрон.**
 
 Для каждого `mm-*/SKILL.md`:
 - ✅ Имеет `version:` в frontmatter
 - ✅ `name:` совпадает с папкой
-- ⚠️ Версия старше актуальной (если в `<repo>/.mm-versions.json` указана) → предложи `git pull`
+
+Версионная консистентность:
+- ✅ `config.version` присутствует и валиден (semver).
+- ⚠️ Если у текущего проекта `passport.mm_version` **старше** `config.version` → `⚠️ Паспорт проштампован mm <passport.mm_version>, актуальная <config.version>. Прогони /mm-init-project (update) для refresh.`
+- (Файл `.mm-versions.json` больше не используется — игнорируй, если встретишь.)
 
 ### 8. Глобальный CLAUDE.md (опционально)
 
@@ -166,8 +178,11 @@ Test-Path $item.Target  # должно быть true
 ✅ Bridge state: next-prompt.md от <date> (свежий)
 ⚠️ Bridge archive: 47 файлов старше 30 дней — предложил удалить
 ✅ Текущий проект: <name>, passport валидный (gsd_version: <none|v1|v2>), sync OK
+✅ handoff.md: на месте <или ⚠️ отсутствует — /mm save>
+✅ GSD-директива в CLAUDE.md: есть <или ⚠️ нет — /mm new для retrofit; или n/a если GSD нет>
 ⚠️ Секция 8 паспорта: TODO-маркер не убран
-✅ Skills frontmatter: 8/8 (версии 0.4.0)
+✅ Skills frontmatter: 8/8 имеют version и name
+✅ Версии: config.version <X.Y.Z>, passport.mm_version <X.Y.Z> <совпадают | паспорт старше — /mm new>
 ✅ karpathy-skills plugin: установлен
 ✅ context-mode plugin: установлен, sessions/ есть
 ⚠️ Telegram bridge: не установлен (опционально — см. docs/TG-BRIDGE.md)
