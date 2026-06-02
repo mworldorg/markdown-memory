@@ -1,7 +1,7 @@
 {
   "_doc": "ШАБЛОН. Личные пути и данные задаются через /mm setup → config/mm-config.local.json (gitignored), который перекрывает значения отсюда. См. docs/CONFIG-LOADING.md.",
   "_version_note": "version — единый источник версии mm-системы (repo-wide release). passport.mm_version проставляется отсюда при /mm-init-project. Per-skill version: в SKILL.md — гранулярная история конкретного скилла, это не рассинхрон.",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "namespace": "mm",
   "default_language": "ru",
   "user": {

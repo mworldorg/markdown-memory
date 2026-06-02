@@ -5,7 +5,7 @@
 **A file-based memory and prompt bridge that connects claude.ai (where you think) ↔ Claude Code (where you build) ↔ Obsidian (shared long-term memory).**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.5.2-green.svg)
+![Version](https://img.shields.io/badge/version-0.6.0-green.svg)
 ![Type: Agent Skills](https://img.shields.io/badge/type-Claude%20Agent%20Skills-8A2BE2.svg)
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows%20(primary)-lightgrey.svg)
 
