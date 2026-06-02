@@ -25,6 +25,8 @@ louise-skills/  (этот репо — source of truth)
 │   ├── mm-save-session/             ← закрыть сессию, лог в Obsidian
 │   ├── mm-instructions/             ← генерить Project Instructions для claude.ai
 │   └── mm-doctor/                   ← самопроверка системы (junction'ы, конфиг, паспорта, GSD)
+├── claude-ai-skills/                ← скиллы для ЗАГРУЗКИ в claude.ai (НЕ Claude Code; не джанкшенятся)
+│   └── mm-web-bridge/               ← веб-партнёр: обсуждение идей + веб-проверка + промпт-композер
 ├── templates/
 │   ├── passport.md                  ← стандарт паспорта (11 секций + privacy checklist)
 │   ├── project-instructions.md      ← шаблон для claude.ai Instructions
