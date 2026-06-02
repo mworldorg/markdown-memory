@@ -63,22 +63,28 @@ flowchart LR
 ### Install (Claude Code side)
 
 ```powershell
+# 0. (first time only) launch Claude Code once so ~/.claude/skills exists
 # 1. Clone
 git clone https://github.com/mworldorg/louise-skills.git
 cd louise-skills
 
-# 2. Register the skills (creates junctions into ~/.claude/skills and sets MM_REPO_ROOT)
+# 2. Register the skills (junctions into ~/.claude/skills + sets MM_REPO_ROOT)
+#    If PowerShell blocks the script, run instead:
+#    powershell -ExecutionPolicy Bypass -File scripts/register-skills.ps1
 powershell scripts/register-skills.ps1
 
-# 3. Personalize (writes your name/paths into a gitignored local config)
+# 3. RESTART Claude Code (skills load at session start), then personalize:
 /mm setup
+
+# 4. Create your first project's passport (run inside the project folder):
+/mm new
 ```
 
 ### Connect the claude.ai side
 
 1. Create a Project in claude.ai for your work.
 2. Add your project's `passport.md` and `handoff.md` to **Project Knowledge**.
-3. Load the `mm-web-bridge` skill (in `claude-ai-skills/mm-web-bridge/`) into that Project.
+3. Load the `mm-web-bridge` skill into that Project (claude.ai → Customize → Skills → Upload a skill). After `/mm setup`, upload your personalized copy from `claude-ai-skills/_generated/mm-web-bridge/` — the committed `claude-ai-skills/mm-web-bridge/` is a template with placeholder persona.
 4. First message in a new chat:
    > *"Read handoff.md and passport.md, tell me where we are and suggest the next step."*
 
@@ -116,8 +122,8 @@ Ten skills on the Claude Code side, plus one on the claude.ai side — and vendo
 mm cooperates with several external tools and bodies of work. Where it builds on someone else's project, that project keeps its own license and attribution.
 
 - **GSD** — phase-based planning framework. mm **reads** GSD state (`.planning/` / `.gsd/`) and cooperates with it; it never writes there. *(deepest integration)*
-- **Karpathy guidelines** — four meta-principles (think before coding, simplicity first, surgical changes, goal-driven) applied across both the Claude Code and claude.ai sides. MIT.
-- **[context-mode](https://github.com/mksglu/context-mode)** — in-session context optimization and continuity. See [Memory layers](#two-memory-layers) for how it relates to mm. Elastic License 2.0 (source-available).
+- **Karpathy guidelines** — four meta-principles (think before coding, simplicity first, surgical changes, goal-driven) applied across both the Claude Code and claude.ai sides. MIT. *(external Claude Code plugin — install separately, see Optional plugins below)*
+- **[context-mode](https://github.com/mksglu/context-mode)** — in-session context optimization and continuity. See [Memory layers](#two-memory-layers) for how it relates to mm. Elastic License 2.0 (source-available). *(external Claude Code plugin — install separately, see Optional plugins below)*
 - **prompt-frameworks** — CRISPE / XML / PERSONA / HYPOTHESIS templates used by `mm-bridge`. Inspired by [awesome-claude-prompts](https://github.com/langgptai/awesome-claude-prompts), MIT.
 - **[claude-code-telegram](https://github.com/RichardAtCT/claude-code-telegram)** — optional Telegram bridge, off by default. MIT.
 - **[ECC — everything-claude-code](https://github.com/affaan-m/everything-claude-code)** — only the `security-review` skill is vendored (a self-contained markdown security checklist), into `vendor/ecc-security-review/`, renamed to avoid clashing with the built-in `/security-review`. The rest of ECC (AgentShield, plugin, hooks, ~246 skills) is **not** included. MIT © Affaan Mustafa. *(pilot of a per-skill vendoring mechanism — see [`vendor/README.md`](vendor/README.md))*
@@ -130,6 +136,20 @@ mm and context-mode solve **different** problems and don't overlap:
 - **mm** keeps *long-term project history* — decisions, handoffs, and session notes that persist across sessions and across chats, in the Obsidian vault.
 
 If you use both, context-mode already handles compaction; mm doesn't try to.
+
+### Optional plugins
+
+Karpathy guidelines and context-mode are external Claude Code plugins (not bundled in this repo). mm cooperates with them but works without them. To install:
+
+```text
+# Karpathy coding guidelines (think-before-coding, simplicity, surgical, goal-driven)
+/plugin marketplace add forrestchang/andrej-karpathy-skills
+/plugin install andrej-karpathy-skills@karpathy-skills
+
+# context-mode (in-session context optimization + continuity across compaction)
+/plugin marketplace add mksglu/context-mode
+/plugin install context-mode@context-mode
+```
 
 ---
 
