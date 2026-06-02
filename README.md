@@ -92,7 +92,7 @@ powershell scripts/register-skills.ps1
 
 ## Skills
 
-Ten skills on the Claude Code side, plus one on the claude.ai side.
+Ten skills on the Claude Code side, plus one on the claude.ai side — and vendored external skills (see [Integrations](#integrations)).
 
 | Skill | What it does |
 |---|---|
@@ -107,6 +107,7 @@ Ten skills on the Claude Code side, plus one on the claude.ai side.
 | `mm-instructions` | Manage project instructions |
 | `mm-doctor` | Health checks, version sync, consistency with passport |
 | `mm-web-bridge` *(claude.ai)* | Idea partner + prompt composer in the browser |
+| `ecc-security-review` *(vendored — [ECC](https://github.com/affaan-m/everything-claude-code), MIT)* | Security checklist: secrets, input validation, SQLi, auth, XSS/CSRF, rate limiting |
 
 ---
 
@@ -119,6 +120,7 @@ mm cooperates with several external tools and bodies of work. Where it builds on
 - **[context-mode](https://github.com/mksglu/context-mode)** — in-session context optimization and continuity. See [Memory layers](#two-memory-layers) for how it relates to mm. Elastic License 2.0 (source-available).
 - **prompt-frameworks** — CRISPE / XML / PERSONA / HYPOTHESIS templates used by `mm-bridge`. Inspired by [awesome-claude-prompts](https://github.com/langgptai/awesome-claude-prompts), MIT.
 - **[claude-code-telegram](https://github.com/RichardAtCT/claude-code-telegram)** — optional Telegram bridge, off by default. MIT.
+- **[ECC — everything-claude-code](https://github.com/affaan-m/everything-claude-code)** — only the `security-review` skill is vendored (a self-contained markdown security checklist), into `vendor/ecc-security-review/`, renamed to avoid clashing with the built-in `/security-review`. The rest of ECC (AgentShield, plugin, hooks, ~246 skills) is **not** included. MIT © Affaan Mustafa. *(pilot of a per-skill vendoring mechanism — see [`vendor/README.md`](vendor/README.md))*
 
 ### Two memory layers
 
