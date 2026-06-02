@@ -1,12 +1,15 @@
 {
   "_doc": "См. docs/CONFIG-LOADING.md для алгоритма загрузки. Машинно-специфичные overrides — в config/mm-config.local.json (gitignored).",
   "_version_note": "version — единый источник версии mm-системы (repo-wide release). passport.mm_version проставляется отсюда при /mm-init-project. Per-skill version: в SKILL.md — гранулярная история конкретного скилла, это не рассинхрон.",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "namespace": "mm",
   "default_language": "ru",
   "user": {
     "name": "louise",
-    "telegram_admin_id": null
+    "domain": "Telegram-боты и автоматизация",
+    "stack": "aiogram 3.x · Python 3.12 · SQLite/sqlmodel · loguru · Railway",
+    "telegram_admin_id": null,
+    "_note": "Committed-значения — дефолты louise. Другой пользователь переопределяет их через /mm setup → config/mm-config.local.json (gitignored)."
   },
   "paths": {
     "obsidian_vault": "C:\\Users\\louise\\Documents\\Obsidian Vault",

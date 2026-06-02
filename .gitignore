@@ -28,6 +28,9 @@ __pycache__/
 *.kdbx
 config/*.local.json
 
+# Персональные данные пользователя (генерит /mm setup) — не коммитить
+claude-ai-skills/_generated/
+
 # External dependencies (клонированные репо третьих сторон)
 external/
 

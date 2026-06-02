@@ -15,8 +15,9 @@
 
 ```
 louise-skills/  (этот репо — source of truth)
-├── skills/                          (9 mm-* skills, junction'ятся в ~/.claude/skills/)
+├── skills/                          (10 mm-* skills, junction'ятся в ~/.claude/skills/)
 │   ├── mm/                          ← диспетчер (/mm new, /mm save, /mm bridge, ...)
+│   ├── mm-setup/                    ← персонализация под пользователя (имя, стек, пути)
 │   ├── mm-init-project/             ← создать/обновить паспорт + Obsidian + claude.ai instructions
 │   ├── mm-resume/                   ← «где мы» — passport + last session + git + GSD
 │   ├── mm-projects/                 ← обзор всех проектов одним экраном
@@ -118,6 +119,7 @@ copy config/mm-config.local.example.json config/mm-config.local.json
 | Короткая | Полная | Когда |
 |---|---|---|
 | `/mm` | — | Список всех команд |
+| `/mm setup` | `/mm-setup` | Персонализация под себя (1 раз после клона репо) |
 | `/mm new` | `/mm-init-project` | Инициализация / обновление проекта |
 | `/mm resume` | `/mm-resume` | «Где мы» — passport + last session + git + GSD-фаза |
 | `/mm projects` | `/mm-projects` | Обзор всех проектов одним экраном |
