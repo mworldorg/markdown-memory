@@ -5,8 +5,10 @@
 > Используется:
 > - `mm-init-project` — проверка `passport.md` перед тем как он попадёт в claude.ai.
 > - `mm-handoff` — scrub `handoff.md` перед записью (он тоже едет в Project Knowledge).
+> - `mm-save-session` — scrub заметки сессии перед записью в vault.
+> - `mm-bridge` — scrub промпта перед отдачей в claude.ai (внешний сервис, copy-paste).
 >
-> Список вдохновлён context-mode и расширен. Раскладка имён полей — case-insensitive.
+> Базовый набор вдохновлён context-mode; точные форматы ключей провайдеров сверены с **ruleset gitleaks** (`github.com/gitleaks/gitleaks`, `config/gitleaks.toml`, лицензия **MIT**). Раскладка имён полей — case-insensitive. Сверено с сетью 2026-06.
 
 ## Правило: маскировать, НЕ удалять
 
@@ -23,24 +25,26 @@
 
 Низкий риск ложного срабатывания → маскируй автоматически, без вопроса. Уведоми пользователя одной строкой по факту (что и сколько замаскировано).
 
-| Pattern | Что ловит | Тип плейсхолдера |
-|---|---|---|
-| `(?i)(authorization\|api[_-]?key\|secret\|password\|token\|bearer\|cookie\|signature\|private[_-]?key)[\s:=]+\S{8,}` | Именованные ключи (любая раскладка имени поля) | `secret` |
-| `[0-9]{8,12}:[A-Za-z0-9_\-]{30,}` | Telegram bot tokens (`bot_id:token`) | `telegram-token` |
-| `sk-[A-Za-z0-9]{20,}` | OpenAI / Anthropic ключи | `openai-key` |
-| `sk-ant-[A-Za-z0-9_\-]{40,}` | Anthropic API keys | `anthropic-key` |
-| `ghp_[A-Za-z0-9]{30,}` / `gho_` / `ghs_` / `ghu_` / `ghr_` | GitHub tokens (все типы) | `github-token` |
-| `xox[baprs]-[A-Za-z0-9-]{10,}` | Slack tokens | `slack-token` |
-| `AKIA[0-9A-Z]{16}` | AWS access key ID | `aws-key` |
-| `[A-Za-z0-9/+]{40}` рядом с `aws_secret` | AWS secret access key | `aws-secret` |
-| `AIza[0-9A-Za-z_\-]{35}` | Google API keys | `google-key` |
-| `ya29\.[A-Za-z0-9_\-]+` | Google OAuth tokens | `google-oauth` |
-| `eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,}` | JWT tokens | `jwt` |
-| `-----BEGIN (RSA \|EC \|OPENSSH \|DSA \|PGP )?PRIVATE KEY-----` | Inline private keys | `private-key` |
-| `https?://[^\s]*:[^@\s/]+@` | URL'ы с inline credentials | `conn-creds` |
-| `mongodb(\+srv)?://[^\s/]+:[^@\s/]+@` | MongoDB connection strings | `conn-creds` |
-| `postgres(ql)?://[^\s/]+:[^@\s/]+@` | Postgres connection strings | `conn-creds` |
-| `redis://[^\s/]*:[^@\s/]+@` | Redis с password | `conn-creds` |
+Колонка **Источник**: `gitleaks` — regex взят/сверен с gitleaks ruleset (MIT); `context-mode` / `provider docs` — базовый набор.
+
+| Pattern | Что ловит | Тип плейсхолдера | Источник |
+|---|---|---|---|
+| `[0-9]{5,16}:[A-Za-z0-9_-]{35}` | Telegram bot token (`bot_id:hash`, хэш 35 симв.) | `telegram-token` | gitleaks `telegram-bot-api-token` |
+| `sk-[A-Za-z0-9]{20}T3BlbkFJ[A-Za-z0-9]{20}` и `sk-(proj\|svcacct\|admin)-[A-Za-z0-9_-]{58,74}T3BlbkFJ[A-Za-z0-9_-]{58,74}` | OpenAI API keys (маркер `T3BlbkFJ`, вкл. project/service) | `openai-key` | gitleaks `openai-api-key` |
+| `sk-ant-api03-[A-Za-z0-9_-]{93}AA` | Anthropic API keys | `anthropic-key` | gitleaks `anthropic-api-key` |
+| `gh[posru]_[0-9A-Za-z]{36}` | GitHub tokens (pat `ghp_`, oauth `gho_`, app `ghu_`/`ghs_`, refresh `ghr_`) | `github-token` | gitleaks `github-pat`/`-oauth`/`-app-token`/`-refresh-token` |
+| `(A3T[A-Z0-9]\|AKIA\|ASIA\|ABIA\|ACCA)[A-Z2-7]{16}` | AWS access key ID (вкл. ASIA temp creds) | `aws-key` | gitleaks `aws-access-token` |
+| `[A-Za-z0-9/+]{40}` рядом с `aws_secret` | AWS secret access key | `aws-secret` | provider docs |
+| `xoxb-[0-9]{10,13}-[0-9]{10,13}[A-Za-z0-9-]*` · `xox[pe](-[0-9]{10,13}){3}-[A-Za-z0-9-]{28,34}` · `xox[os]-\d+-\d+-\d+-[a-fA-F\d]+` | Slack tokens (bot / user / legacy) | `slack-token` | gitleaks `slack-bot-token`/`-user-token`/`-legacy-token` |
+| `AIza[\w-]{35}` | Google / GCP API keys | `google-key` | gitleaks `gcp-api-key` |
+| `ya29\.[A-Za-z0-9_-]+` | Google OAuth tokens | `google-oauth` | provider docs |
+| `eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}` | JWT tokens | `jwt` | RFC 7519 |
+| `-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY( BLOCK)?-----[\s\S]{64,}?-----END[ A-Z0-9_-]{0,100}PRIVATE KEY( BLOCK)?-----` | PEM приватный ключ (весь блок) | `private-key` | gitleaks `private-key` |
+| `(?i)(authorization\|api[_-]?key\|secret\|password\|passwd\|token\|bearer\|credential\|creds\|private[_-]?key\|signature\|cookie)[\s:=>"']{1,5}[\w.=/+-]{10,150}` | Именованные ключи + generic high-entropy assignment (`api_key/token/secret = "…"`) | `secret` | gitleaks `generic-api-key` |
+| `https?://[^\s]*:[^@\s/]+@` | URL'ы с inline credentials | `conn-creds` | context-mode |
+| `(mongodb(\+srv)?\|postgres(ql)?\|redis)://[^\s/]+:[^@\s/]+@` | Connection strings с паролем (Mongo / Postgres / Redis) | `conn-creds` | context-mode |
+
+> Generic-assignment паттерн (последняя строка) — keyword-anchored: маскирует значение только когда рядом есть имя поля-секрета (`api_key=…`, `password: …`). Низкий FP → Класс A. Бесконтекстная «просто длинная строка» — это Класс B ниже.
 
 ## Класс B — ШИРОКИЕ / WARN-ONLY (НЕ маскировать молча)
 
@@ -55,4 +59,17 @@
 ⚠️ возможный секрет/длинная строка в <файл/секция>, строка N: <первые 12 симв.>… — проверь вручную (не замаскировано).
 ```
 
-Не блокируй запись из-за Класса B — это подсказка, не стоп.
+В большинстве скиллов Класс B **не блокирует** запись — это подсказка, не стоп (исключение — `mm-bridge`, см. ниже).
+
+## Политики применения по скиллам
+
+Паттерны едины (этот файл), но **политика** зависит от того, куда уходит контент. Каждый скилл берёт свою строку отсюда — не дублируй ни паттерны, ни политику в теле скилла.
+
+| Скилл | Куда пишет | Класс A | Класс B | Hard-stop? |
+|---|---|---|---|---|
+| `mm-handoff` | `handoff.md` → claude.ai Knowledge | mask молча | warn-only | нет |
+| `mm-init-project` | `passport.md` → claude.ai | mask молча | warn-only | нет |
+| `mm-save-session` | заметка сессии → vault | mask молча | warn-only | нет |
+| `mm-bridge` | `next-prompt.md` → claude.ai (copy-paste, внешний сервис) | **mask** | **mask** | **ДА — стоп до явного подтверждения** |
+
+`mm-bridge` строже всех: его вывод пользователь руками вставляет в claude.ai, поэтому маскируется И Класс A, И Класс B, и при любой находке — жёсткий стоп: вывод не отдаётся, пока пользователь явно не подтвердит.
