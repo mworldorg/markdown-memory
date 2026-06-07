@@ -57,28 +57,53 @@ flowchart LR
 ### Prerequisites
 
 - [Claude Code](https://docs.claude.com/en/docs/claude-code) CLI
-- Windows + PowerShell (primary platform — see [Cross-platform](#cross-platform) below)
+- Python 3 (installed on macOS/Windows by default)
+- Node.js (v16+ for `npx` installer)
 - An Obsidian vault (any folder works; Obsidian itself is optional but recommended)
 
-### Install (Claude Code side)
+### [NPM / npx Installation (Recommended)](#npm-npx-installation)
 
-```powershell
-# 0. (first time only) launch Claude Code once so ~/.claude/skills exists
-# 1. Clone
+The easiest way to install and configure the entire system across **Windows, macOS, and Linux** is using `npx`:
+
+```bash
+npx markdown-memory
+```
+
+This single command will:
+1. Clone the repository into `~/.markdown-memory/` (or update it if already cloned).
+2. Set the `MM_REPO_ROOT` environment variable in your shell profile (`.zshrc` / `.bashrc` on Mac/Linux) or Windows Registry.
+3. Automatically register all skills (creating NTFS junctions on Windows or symlinks on macOS/Linux) under `~/.claude/skills/`.
+
+*To update the skills and codebase at any time, simply run `npx markdown-memory` (or `/mm update` inside the agent session) again!*
+
+---
+
+### Manual Installation (Alternative)
+
+```bash
+# 1. Clone the repository
 git clone https://github.com/mworldorg/markdown-memory.git
 cd markdown-memory
 
-# 2. Register the skills (junctions into ~/.claude/skills + sets MM_REPO_ROOT)
-#    If PowerShell blocks the script, run instead:
-#    powershell -ExecutionPolicy Bypass -File scripts/register-skills.ps1
+# 2. Register skills:
+# On Windows (PowerShell):
 powershell scripts/register-skills.ps1
-
-# 3. RESTART Claude Code (skills load at session start), then personalize:
-/mm setup
-
-# 4. Create your first project's passport (run inside the project folder):
-/mm new
+# On macOS / Linux (or Windows with Python):
+python3 scripts/register-skills.py
 ```
+
+---
+
+### Post-Installation Setup
+
+1. **Personalization**: Restart Claude Code (skills load at session start), then run the setup command:
+   ```bash
+   /mm setup
+   ```
+2. **Create Passport**: Navigate to your project folder and initialize it:
+   ```bash
+   /mm new
+   ```
 
 ### Connect the claude.ai side
 
