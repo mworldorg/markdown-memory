@@ -4,6 +4,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const readline = require('readline');
 
 const home = os.homedir();
 const installDir = path.join(home, '.markdown-memory');
@@ -41,6 +42,53 @@ function checkGit() {
   }
 }
 
+function askQuestion(query) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise(resolve => rl.question(query, ans => {
+    rl.close();
+    resolve(ans.trim());
+  }));
+}
+
+async function detectAndSelectTargets() {
+  const claudeDir = path.join(home, '.claude');
+  const antigravityDir = path.join(home, '.gemini', 'antigravity');
+  
+  const hasClaude = fs.existsSync(claudeDir);
+  const hasAntigravity = fs.existsSync(antigravityDir);
+  
+  console.log("🔍 Detecting installed platforms...");
+  if (hasClaude) console.log("  [✓] Claude Code detected");
+  else console.log("  [ ] Claude Code not detected");
+  
+  if (hasAntigravity) console.log("  [✓] Antigravity IDE/Client detected");
+  else console.log("  [ ] Antigravity IDE/Client not detected");
+  
+  if (hasClaude && hasAntigravity) {
+    console.log("\nBoth platforms detected!");
+    const ans = await askQuestion("Install for: [1] Claude Code, [2] Antigravity, [3] Both (default): ");
+    if (ans === '1') return ['--only-claude'];
+    if (ans === '2') return ['--only-antigravity'];
+    return []; // both
+  }
+  
+  if (hasClaude) {
+    console.log("\nInstalling only for Claude Code (auto-detected).");
+    return ['--only-claude'];
+  }
+  
+  if (hasAntigravity) {
+    console.log("\nInstalling only for Antigravity IDE (auto-detected).");
+    return ['--only-antigravity'];
+  }
+  
+  console.log("\nNo active platform directories found. Defaulting to Claude Code setup.");
+  return ['--only-claude'];
+}
+
 function showHelp() {
   console.log(`
 markdown-memory CLI Installer
@@ -56,7 +104,7 @@ Commands:
 `);
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const command = args[0] || 'install';
 
@@ -76,7 +124,8 @@ function main() {
       console.error(`❌ Error: register-skills.py not found at ${registerScript}`);
       process.exit(1);
     }
-    runCmd(`"${pythonCmd}" "${registerScript}"`);
+    const targetArgs = await detectAndSelectTargets();
+    runCmd(`"${pythonCmd}" "${registerScript}" ${targetArgs.join(' ')}`);
     console.log("✅ Skills registered successfully!");
     return;
   }
@@ -100,7 +149,8 @@ function main() {
       console.error(`❌ Error: register-skills.py not found at ${registerScript}`);
       process.exit(1);
     }
-    runCmd(`"${pythonCmd}" "${registerScript}"`);
+    const targetArgs = await detectAndSelectTargets();
+    runCmd(`"${pythonCmd}" "${registerScript}" ${targetArgs.join(' ')}`);
 
     console.log("\n=============================================");
     console.log("🎉 markdown-memory skill system is ready!");
