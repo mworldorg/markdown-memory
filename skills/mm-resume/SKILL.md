@@ -63,15 +63,17 @@ git log --oneline -5            # последние коммиты
 git stash list 2>/dev/null      # есть ли stash'ы
 ```
 
-#### 2d. GSD-контекст (dual-detection v1/v2)
+#### 2d. GSD-контекст (dual-detection v1/v2/core)
 
 Сначала определи версию:
-- `<project_root>/.planning/` → **GSD v1**
-- `<project_root>/.gsd/` → **GSD v2**
+- `<project_root>/.planning/` существует:
+  - Если `<project_root>/.planning/config.json` существует → **GSD Core**
+  - Иначе → **GSD v1**
+- `<project_root>/.gsd/` существует → **GSD v2**
 - Оба → используй `gsd_version` из passport frontmatter; если нет — спроси.
 - Ничего нет → пропусти секцию.
 
-**Если GSD v1 (`.planning/`)** — прочитай в этом порядке (приоритет ↓):
+**Если GSD v1 или GSD Core (`.planning/`)** — прочитай в этом порядке (приоритет ↓):
 
 1. **`.planning/STATE.md`** — главное. Из него: текущий milestone, position (phase/step), последние решения, blockers.
 2. **`.planning/HANDOFF.json`** (если существует) — самый свежий snapshot от `/gsd-pause-work`. Если его mtime > чем у последней mm-сессии — приоритет HANDOFF.
@@ -120,7 +122,7 @@ git stash list 2>/dev/null      # есть ли stash'ы
 <1-3 строки из dashboard.md «Сейчас» + если есть текущая GSD-фаза — она>
 
 <Если GSD:>
-🎯 GSD <v1|v2>: M<N> «<milestone_title>», фаза <X>/<Y> — «<phase_title>»
+🎯 GSD <v1|v2|core>: M<N> «<milestone_title>», фаза <X>/<Y> — «<phase_title>»
    Статус: <X задач completed, Y pending, Z blocked>
    Текущая фаза: <статус из STATE.md>
    <Если есть HANDOFF.json свежее последней сессии:>

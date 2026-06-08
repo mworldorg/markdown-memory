@@ -6,7 +6,7 @@ type: <bot | web | lib | script | other>
 status: <active | paused | shipped | archived>
 language: <python | typescript | go | ...>
 mm_version: <MM_VERSION>        # = config.version; проставляет mm-init-project, не хардкодить
-gsd_version: <none | v1 | v2>   # детектится автоматом по .planning/ vs .gsd/
+gsd_version: <none | v1 | v2 | core>   # детектится автоматом по .planning/ vs .gsd/
 ---
 
 # <PROJECT_NAME> — Passport
@@ -116,7 +116,7 @@ project/
 **Где лежат секреты:** `<.env / 1Password / ...>` — НЕ в репо.
 
 **Системы планирования (заполняется автоматом mm-init-project):**
-- GSD: `<none | v1 .planning/ | v2 .gsd/>`
+- GSD: `<none | v1 .planning/ | v2 .gsd/ | core .planning/>`
 - Текущий milestone / phase: `<M1 / phase 03 — название>` (если GSD)
 - Source-of-truth для scope/requirements: `<passport.md | .planning/PROJECT.md>` (избегай дубликации)
 

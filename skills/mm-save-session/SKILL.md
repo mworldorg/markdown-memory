@@ -184,11 +184,11 @@ updated: <date>
 **Цель:** mm и GSD не дублируются. mm пишет нарратив в Obsidian. GSD пишет technical state (file paths, last error, position) в `HANDOFF.json`. Оба нужны для разных задач при resume.
 
 Алгоритм:
-1. Проверь `<project_root>/.planning/` (GSD v1) или `<project_root>/.gsd/` (v2).
+1. Проверь `<project_root>/.planning/` (GSD v1 / core) или `<project_root>/.gsd/` (v2).
 2. Если ни одного — пропусти этот шаг.
 3. Если есть — спроси одной строкой: `Также вызвать /gsd-pause-work для technical handoff (HANDOFF.json)? (y/n, дефолт y)`.
 4. На `y`:
-   - **GSD v1**: вызови skill `/gsd-pause-work` (Claude Code сам найдёт его, не пиши `.planning/HANDOFF.json` сам — там охраняющий хук).
+   - **GSD v1 / Core**: вызови skill `/gsd-pause-work` (в Claude Code/Antigravity; не пиши `.planning/HANDOFF.json` сам — там охраняющий хук).
    - **GSD v2**: предложи юзеру выполнить в терминале `gsd handoff` (skill этот не запускает CLI).
 5. На `n` — продолжай без GSD-handoff, упомяни в финальном отчёте: «GSD handoff пропущен по запросу».
 6. Если `/gsd-pause-work` вернул ошибку — не падай, упомяни в отчёте: «GSD pause-work failed: <reason>», продолжай.

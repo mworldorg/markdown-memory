@@ -79,7 +79,7 @@ $item.Target  # должно совпадать с <repo>/skills/mm-bridge
 Если в `cwd` или родителях есть `passport.md`:
 - ✅ Frontmatter валидный YAML
 - ✅ Все 11 секций присутствуют
-- ✅ Frontmatter содержит `gsd_version: <none|v1|v2>`
+- ✅ Frontmatter содержит `gsd_version: <none|v1|v2|core>`
 - ⚠️ `updated:` старше 30 дней → предложи `/mm-init-project --update`
 - ⚠️ Секция 8 «Контекст для промптов» содержит маркер `<!-- TODO: заполни секцию 8 -->` → намекни заполнить
 - ✅ Sync с Obsidian-копией (sha256): совпадают?
@@ -93,12 +93,12 @@ $item.Target  # должно совпадать с <repo>/skills/mm-bridge
 Если passport `gsd_version` ≠ none, прогони cross-check:
 
 **Проверка 1: версия в passport совпадает с реальностью**
-- Если в passport `gsd_version: v1`, проверь что `<project_root>/.planning/` существует.
+- Если в passport `gsd_version: v1` или `core`, проверь что `<project_root>/.planning/` существует. (Для `core` проверь также наличие `.planning/config.json`).
 - Если `gsd_version: v2` — проверь `<project_root>/.gsd/`.
-- Если расходится → `❌ passport говорит gsd_version: v1, но .planning/ не найдена. Запусти /mm-init-project --update.`
+- Если расходится → `❌ passport говорит gsd_version: <v1|core>, но .planning/ не найдена. Запусти /mm-init-project --update.` (или аналогично для v2).
 
 **Проверка 2: scope не разъехался**
-- Если есть `.planning/PROJECT.md` (v1):
+- Если есть `.planning/PROJECT.md` (v1/core):
   - Прочитай первые 30 строк и сравни с секцией 1 («Назначение») паспорта.
   - Если **ключевые слова не пересекаются** (jaccard < 0.3 на нормализованных tokens) → `⚠️ passport.md секция 1 и .planning/PROJECT.md описывают разное. Возможно scope изменился. Обнови passport через /mm-init-project --update.`
 - Если есть `.gsd/STATE.md` или AGENTS.md → аналогично.
@@ -182,7 +182,7 @@ $item.Target  # должно совпадать с <repo>/skills/mm-bridge
 ⚠️ Obsidian: vault найден, bridge_archive не было — создал
 ✅ Bridge state: next-prompt.md от <date> (свежий)
 ⚠️ Bridge archive: 47 файлов старше 30 дней — предложил удалить
-✅ Текущий проект: <name>, passport валидный (gsd_version: <none|v1|v2>), sync OK
+✅ Текущий проект: <name>, passport валидный (gsd_version: <none|v1|v2|core>), sync OK
 ✅ handoff.md: на месте <или ⚠️ отсутствует — /mm save>
 ✅ GSD-директива в CLAUDE.md: есть <или ⚠️ нет — /mm new для retrofit; или n/a если GSD нет>
 ⚠️ Секция 8 паспорта: TODO-маркер не убран

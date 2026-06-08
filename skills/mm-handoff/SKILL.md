@@ -82,12 +82,12 @@ git branch --show-current
 
 ### Шаг 5.5. Собери GSD context (если применимо)
 
-Если в `<project_root>/.planning/` или `<project_root>/.gsd/`:
+Если в `<project_root>/.planning/` (GSD v1 / core) или `<project_root>/.gsd/` (v2):
 - Из `STATE.md` — current milestone + current phase + status
 - Из `ROADMAP.md` — позиция (фаза X из Y)
 - Из `phases/<NN-current>/CONTEXT.md` — топ-3 решения текущей фазы
 - Из последних 3 `phases/<NN>/SUMMARY.md` (по mtime) — что было завершено
-- Из `HANDOFF.json` (v1) — last position от `/gsd-pause-work`
+- Из `HANDOFF.json` (v1/core) — last position от `/gsd-pause-work` (или соответствующей gsd-core команды)
 
 Это станет новым блоком в handoff.md (см. ниже формат).
 
@@ -162,7 +162,7 @@ sessions_summarized: <N>
 <!-- GSD блок: вставляй ТОЛЬКО если в проекте есть .planning/ или .gsd/ -->
 ## GSD контекст (если применимо)
 
-- **Версия**: <v1 .planning/ | v2 .gsd/>
+- **Версия**: <v1 .planning/ | v2 .gsd/ | core .planning/ config.json>
 - **Milestone**: M<N> «<title>», прогресс <X>/<Y> фаз
 - **Текущая фаза**: <NN-current> «<title>» — статус <draft | discussed | planned | in-progress | verified | complete>
 - **Последние завершённые фазы** (топ-3 по mtime SUMMARY.md):

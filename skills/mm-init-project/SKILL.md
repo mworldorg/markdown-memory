@@ -178,7 +178,9 @@ git log --oneline -10
 ### 1e. Системы которые могут конфликтовать (dual-detection GSD)
 
 **GSD detection** (определи версию):
-- `<project_root>/.planning/` существует → **GSD v1**. В passport frontmatter `gsd_version: v1`.
+- `<project_root>/.planning/` существует:
+  - Если `<project_root>/.planning/config.json` существует → **GSD Core**. В passport frontmatter `gsd_version: core`.
+  - Иначе → **GSD v1**. В passport frontmatter `gsd_version: v1`.
 - `<project_root>/.gsd/` существует → **GSD v2**. В passport frontmatter `gsd_version: v2`.
 - Оба → **смешанный** (редкость, после миграции). Спроси: какой считать активным?
 - Ни одного → `gsd_version: none`.
@@ -245,7 +247,7 @@ Git: <branch>, <N> коммитов, remote: <url или local>
   (используются ТОЛЬКО для чтения — не будут изменены)
 
 GSD detection:
-  • Версия: <none | v1 (.planning/) | v2 (.gsd/)>
+  • Версия: <none | v1 (.planning/) | v2 (.gsd/) | core (.planning/ config.json)>
   • PROJECT.md: <есть, 240 строк — могу импортировать vision и audience в секции 1, 3>
   • REQUIREMENTS.md: <есть, REQ-001..REQ-014 — топ-5 в секцию 4?>
   • Текущий milestone: <M1 «MVP», phase 03/07 «add /stats command» (in-progress)>
@@ -382,7 +384,7 @@ project-instructions: возьми `<skills_repo>/templates/project-instructions
 
 ### GSD в этом проекте
 
-Проект использует **GSD <v1 `.planning/` | v2 `.gsd/`>** — пофазовое планирование. Правило маршрутизации работы (триггер по сложности):
+Проект использует **GSD <v1 `.planning/` | v2 `.gsd/` | core `.planning/ config.json`>** — пофазовое планирование. Правило маршрутизации работы (триггер по сложности):
 - **Нетривиальная фича / многошаговая задача** → начни с `/gsd-discuss-phase` или `/gsd-plan-phase`, затем `/gsd-execute-phase`. **Не пиши feature-код ad-hoc в обход фаз.**
 - **Мелочь / однострочник / точечная правка** → `/gsd-fast` (или `/gsd-quick`), либо просто сделай — без церемонии.
 - Перед изменениями сверься с current phase в `<.planning/STATE.md | .gsd/STATE.md>`.
