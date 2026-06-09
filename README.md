@@ -179,6 +179,12 @@ Karpathy guidelines and context-mode are external Claude Code plugins (not bundl
 
 ---
 
+## Memory sync (claude.ai Knowledge через git)
+
+Автоматическая синхронизация Obsidian-памяти проекта (паспорт, handoff, сессии) с веб-интерфейсом claude.ai через приватный git-репозиторий на GitHub. Полное руководство по настройке и использованию см. в [`docs/memory-sync.md`](docs/memory-sync.md).
+
+---
+
 ## Cross-platform
 
 mm is cross-platform! It is fully supported on Windows, macOS, and Linux:
@@ -202,6 +208,7 @@ For the optional Telegram bridge:
 ## Documentation
 
 - [`passport.md`](templates/passport.md) — the per-project source of truth (architecture, conventions, constraints)
+- [`docs/memory-sync.md`](docs/memory-sync.md) — step-by-step guide to configure automatic memory sync with claude.ai Project Knowledge via Git (Recommended)
 - [`docs/MCP-INTEGRATION.md`](docs/MCP-INTEGRATION.md) — step-by-step guide to connect your Obsidian Vault via Model Context Protocol (MCP) (Recommended)
 - [`docs/`](docs/) — deeper guides (Telegram bridge, config loading, etc.)
 
