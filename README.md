@@ -123,7 +123,7 @@ python3 scripts/register-skills.py
 
 ## Skills
 
-Ten skills on the Claude Code side, plus one on the claude.ai side — and vendored external skills (see [Integrations](#integrations)).
+Eleven skills on the Claude Code side, plus one on the claude.ai side — and vendored external skills (see [Integrations](#integrations)).
 
 | Skill | What it does |
 |---|---|
@@ -137,6 +137,7 @@ Ten skills on the Claude Code side, plus one on the claude.ai side — and vendo
 | `mm-save-session` | Capture decisions and progress into the vault |
 | `mm-instructions` | Manage project instructions |
 | `mm-doctor` | Health checks, version sync, consistency with passport |
+| `mm-update` | Self-update mm from the git remote (fetch, changelog, confirm, ff-only pull, re-register) |
 | `mm-web-bridge` *(claude.ai)* | Idea partner + prompt composer in the browser |
 | `ecc-security-review` *(vendored — [ECC](https://github.com/affaan-m/everything-claude-code), MIT)* | Security checklist: secrets, input validation, SQLi, auth, XSS/CSRF, rate limiting |
 | `ecc-search-first` *(vendored — [ECC](https://github.com/affaan-m/everything-claude-code), MIT)* | Research before coding: search existing tools/libs/MCP/skills, then adopt / extend / build |
