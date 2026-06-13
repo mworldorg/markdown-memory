@@ -154,7 +154,7 @@ mm cooperates with several external tools and bodies of work. Where it builds on
 - **[context-mode](https://github.com/mksglu/context-mode)** — in-session context optimization and continuity. See [Memory layers](#two-memory-layers) for how it relates to mm. Elastic License 2.0 (source-available). *(external Claude Code plugin — install separately, see Optional plugins below)*
 - **prompt-frameworks** — CRISPE / XML / PERSONA / HYPOTHESIS templates used by `mm-bridge`. Inspired by [awesome-claude-prompts](https://github.com/langgptai/awesome-claude-prompts), MIT.
 - **[claude-code-telegram](https://github.com/RichardAtCT/claude-code-telegram)** — optional Telegram bridge, off by default. MIT.
-- **Telethon Integration** — auto-detects Telethon-based projects, copies guidelines on safe sessions handling, injects passport & prompt constraints, and automatically analyzes python codebase for ban-prone mistakes (like missing proxies or hardcoded fingerprints) via `/mm check` (`mm-doctor`). See [docs/TELETHON-INTEGRATION.md](file:///C:/Users/louise/Desktop/louise-skills/docs/TELETHON-INTEGRATION.md). *(built-in)*
+- **Telegram Integration (UI/UX & Sessions)** — auto-detects Telegram bot and Telethon projects, copies safe session guidelines and UI/UX standards, injects constraints into passports, and automatically validates python codebase for ban-prone and UX bugs via `/mm check` (`mm-doctor`). See [docs/TELEGRAM-INTEGRATION.md](file:///C:/Users/louise/Desktop/louise-skills/docs/TELEGRAM-INTEGRATION.md). *(built-in)*
 - **[ECC — everything-claude-code](https://github.com/affaan-m/everything-claude-code)** — two skills vendored per-piece into `vendor/`: `ecc-security-review` (markdown security checklist; renamed to avoid clashing with the built-in `/security-review`) and `ecc-search-first` (research-before-coding workflow). The rest of ECC (AgentShield, plugin, hooks, ~246 skills) is **not** included. MIT © Affaan Mustafa. *(per-skill vendoring mechanism — see [`vendor/README.md`](vendor/README.md))*
 
 ### Two memory layers
@@ -213,7 +213,7 @@ For the optional Telegram bridge:
 - [`passport.md`](templates/passport.md) — the per-project source of truth (architecture, conventions, constraints)
 - [`docs/memory-sync.md`](docs/memory-sync.md) — step-by-step guide to configure automatic memory sync with claude.ai Project Knowledge via Git (Recommended)
 - [`docs/MCP-INTEGRATION.md`](docs/MCP-INTEGRATION.md) — step-by-step guide to connect your Obsidian Vault via Model Context Protocol (MCP) (Recommended)
-- [`docs/TELETHON-INTEGRATION.md`](docs/TELETHON-INTEGRATION.md) — guide on automatic integration of session safety rules for Telethon-based projects (Recommended)
+- [`docs/TELEGRAM-INTEGRATION.md`](docs/TELEGRAM-INTEGRATION.md) — guide on automatic integration of session safety rules and UI/UX design standards for Telegram-based projects (Recommended)
 - [`docs/`](docs/) — deeper guides (Telegram bridge, config loading, etc.)
 
 ---
