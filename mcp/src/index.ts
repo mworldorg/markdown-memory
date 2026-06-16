@@ -50,16 +50,18 @@ server.registerTool(
   {
     title: 'mm system health',
     description:
-      'Детерминированный read-only движок проверок здоровья mm-системы (Раунд 1: загрузка mm-config + проводка junction-ссылок). ' +
+      'Детерминированный read-only движок проверок здоровья mm-системы: config + junction-ссылки всегда; ' +
+      'vault-git + passport/gsd — если передан projectRoot. ' +
       'Ничего не чинит и не пишет — возвращает только факты. Суждение и авто-фиксы — в скилле mm-doctor.',
-    inputSchema: { projectRoot: z.string().optional() }, // зарезервировано под Раунд 2
+    inputSchema: { projectRoot: z.string().optional() }, // для групп vault-git и passport/gsd
   },
-  async () => {
-    const result = runHealth();
-    const icon = (s: CheckStatus): string => (s === 'ok' ? '✅' : s === 'warn' ? '⚠️' : '❌');
+  async ({ projectRoot }) => {
+    const result = runHealth(projectRoot);
+    const icon = (s: CheckStatus): string =>
+      s === 'ok' ? '✅' : s === 'warn' ? '⚠️' : s === 'na' ? '➖' : '❌';
     const lines = result.checks.map((c) => `${icon(c.status)} ${c.id}: ${c.detail}`);
     lines.push(
-      `— итог: ✅ ${result.summary.ok} · ⚠️ ${result.summary.warn} · ❌ ${result.summary.fail}`,
+      `— итог: ✅ ${result.summary.ok} · ⚠️ ${result.summary.warn} · ❌ ${result.summary.fail} · ➖ ${result.summary.na}`,
     );
     return {
       content: [{ type: 'text', text: lines.join('\n') }],

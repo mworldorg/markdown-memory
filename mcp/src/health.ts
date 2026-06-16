@@ -1,13 +1,16 @@
 // Детерминированный read-only движок проверок здоровья mm-системы.
 // Раунд 1: группы config (загрузка mm-config) и junctions (проводка ~/.claude/skills → repo).
+// Раунд 2 (требует projectRoot): группы vault-git и passport/gsd.
 // Ничего не чинит и не пишет. Суждение и авто-фиксы — в скилле mm-doctor.
 
 import fs from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { loadMmConfig, type LoadedConfig } from './config-loader.js';
+import { execFileSync } from 'node:child_process';
+import matter from 'gray-matter';
+import { loadMmConfig, type LoadedConfig, type MmConfig } from './config-loader.js';
 
-export type CheckStatus = 'ok' | 'warn' | 'fail';
+export type CheckStatus = 'ok' | 'warn' | 'fail' | 'na';
 
 export interface HealthCheck {
   id: string;
@@ -17,7 +20,7 @@ export interface HealthCheck {
 
 export interface HealthResult {
   checks: HealthCheck[];
-  summary: { ok: number; warn: number; fail: number };
+  summary: { ok: number; warn: number; fail: number; na: number };
 }
 
 // Нормализация пути ссылки для сравнения: снять NT-префиксы (\\?\, \??\),
@@ -37,7 +40,11 @@ export function junctionMatches(actual: string, expected: string): boolean {
   return normalizeLinkPath(actual) === normalizeLinkPath(expected);
 }
 
-function configChecks(): { checks: HealthCheck[]; repoRoot: string | null } {
+function configChecks(): {
+  checks: HealthCheck[];
+  repoRoot: string | null;
+  config: MmConfig | null;
+} {
   const checks: HealthCheck[] = [];
   let loaded: LoadedConfig;
   try {
@@ -49,7 +56,7 @@ function configChecks(): { checks: HealthCheck[]; repoRoot: string | null } {
       status: 'fail',
       detail: `mm-config не загружен: ${(e as Error).message}`,
     });
-    return { checks, repoRoot: null };
+    return { checks, repoRoot: null, config: null };
   }
 
   checks.push({
@@ -89,7 +96,7 @@ function configChecks(): { checks: HealthCheck[]; repoRoot: string | null } {
         },
   );
 
-  return { checks, repoRoot: loaded.repoRoot };
+  return { checks, repoRoot: loaded.repoRoot, config: loaded.config };
 }
 
 // Собирает целевые каталоги: skills/mm-* и vendor/* (каждый каталог).
@@ -196,8 +203,205 @@ function junctionChecks(repoRoot: string): HealthCheck[] {
   return checks;
 }
 
-// Прогоняет все проверки Раунда 1. Никогда не кидает: сбои отражаются как checks со status fail.
-export function runHealth(): HealthResult {
+// --- Раунд 2: vault-git и passport/gsd (требуют projectRoot) ---
+
+// Запуск git read-only через child_process (без git-библиотеки). Никогда не кидает.
+function git(cwd: string, args: string[]): { ok: boolean; stdout: string } {
+  try {
+    const stdout = execFileSync('git', ['-C', cwd, ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return { ok: true, stdout };
+  } catch {
+    return { ok: false, stdout: '' };
+  }
+}
+
+interface PassportInfo {
+  exists: boolean;
+  data?: Record<string, unknown>;
+  parseError?: string;
+}
+
+// Читает <projectRoot>/passport.md и парсит frontmatter gray-matter. Не кидает.
+function readPassport(projectRoot: string): PassportInfo {
+  const passportPath = path.join(projectRoot, 'passport.md');
+  if (!fs.existsSync(passportPath)) return { exists: false };
+  try {
+    const raw = fs.readFileSync(passportPath, 'utf8');
+    const parsed = matter(raw);
+    return { exists: true, data: parsed.data as Record<string, unknown> };
+  } catch (e) {
+    return { exists: true, parseError: (e as Error).message };
+  }
+}
+
+// Извлекает путь vault из секции `## Obsidian Knowledge Vault` (строка `Хранилище знаний: <path>`).
+function vaultFromClaudeMd(projectRoot: string): string | null {
+  const claudeMd = path.join(projectRoot, 'CLAUDE.md');
+  try {
+    if (!fs.existsSync(claudeMd)) return null;
+    const txt = fs.readFileSync(claudeMd, 'utf8');
+    const section = txt.match(/##\s+Obsidian Knowledge Vault([\s\S]*?)(?:\n##\s|$)/);
+    if (!section) return null;
+    const line = section[1].match(/Хранилище\s+знаний:\s*(.+)/);
+    return line ? line[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+// Резолв vault в порядке mm-resume: CLAUDE.md секция → <projectRoot>/.vault → <obsidian_projects>/<name>.
+function resolveVault(
+  projectRoot: string,
+  projectName: string,
+  config: MmConfig | null,
+): string | null {
+  const fromClaude = vaultFromClaudeMd(projectRoot);
+  if (fromClaude && fs.existsSync(fromClaude)) return fromClaude;
+
+  const dotVault = path.join(projectRoot, '.vault');
+  if (fs.existsSync(dotVault)) return dotVault;
+
+  const obsProjects = config?.paths?.obsidian_projects;
+  if (typeof obsProjects === 'string') {
+    const candidate = path.join(obsProjects, projectName);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return null;
+}
+
+function vaultChecks(
+  projectRoot: string,
+  projectName: string,
+  config: MmConfig | null,
+): HealthCheck[] {
+  const checks: HealthCheck[] = [];
+  const vault = resolveVault(projectRoot, projectName, config);
+
+  if (!vault) {
+    checks.push({
+      id: 'vault.resolve',
+      status: 'warn',
+      detail: 'vault не найден (CLAUDE.md секция / .vault / obsidian_projects)',
+    });
+    return checks;
+  }
+  checks.push({ id: 'vault.resolve', status: 'ok', detail: `vault: ${vault}` });
+
+  const insideWorkTree = git(vault, ['rev-parse', '--is-inside-work-tree']);
+  if (!insideWorkTree.ok || insideWorkTree.stdout.trim() !== 'true') {
+    checks.push({
+      id: 'vault.git',
+      status: 'warn',
+      detail: 'vault не git-репо → /mm vault',
+    });
+    return checks;
+  }
+
+  const remote = git(vault, ['remote']);
+  const remotes = remote.stdout
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!remotes.includes('origin')) {
+    checks.push({
+      id: 'vault.git',
+      status: 'warn',
+      detail: 'git-репо без origin — handoff не запушится (причина тихого пропуска в save-session)',
+    });
+    return checks;
+  }
+
+  checks.push({ id: 'vault.git', status: 'ok', detail: 'git-репо с origin' });
+  return checks;
+}
+
+function passportChecks(projectRoot: string, passport: PassportInfo): HealthCheck[] {
+  const checks: HealthCheck[] = [];
+
+  if (!passport.exists) {
+    checks.push({
+      id: 'passport.exists',
+      status: 'na',
+      detail: 'проект не инициализирован для mm (нет passport.md)',
+    });
+    return checks;
+  }
+
+  if (passport.parseError) {
+    checks.push({
+      id: 'passport.frontmatter',
+      status: 'fail',
+      detail: `невалидный YAML frontmatter: ${passport.parseError}`,
+    });
+    return checks;
+  }
+  checks.push({ id: 'passport.frontmatter', status: 'ok', detail: 'frontmatter валиден' });
+
+  const data = passport.data ?? {};
+  if (data.gsd_version === undefined || data.gsd_version === null) {
+    checks.push({ id: 'passport.gsd_version', status: 'warn', detail: 'нет поля gsd_version' });
+    return checks;
+  }
+
+  // Forward-check консистентности: passport заявляет версию → соответствующая папка должна быть.
+  const v = String(data.gsd_version);
+  const planning = path.join(projectRoot, '.planning');
+  const gsd = path.join(projectRoot, '.gsd');
+
+  if (v === 'v1' || v === 'core') {
+    if (!fs.existsSync(planning)) {
+      checks.push({
+        id: 'passport.gsd',
+        status: 'fail',
+        detail: `passport gsd_version: ${v}, но .planning/ не найдена`,
+      });
+    } else if (v === 'core' && !fs.existsSync(path.join(planning, 'config.json'))) {
+      checks.push({
+        id: 'passport.gsd',
+        status: 'fail',
+        detail: 'passport gsd_version: core, но .planning/config.json не найден',
+      });
+    } else {
+      checks.push({
+        id: 'passport.gsd',
+        status: 'ok',
+        detail: `gsd_version: ${v}, .planning/ на месте`,
+      });
+    }
+  } else if (v === 'v2') {
+    checks.push(
+      fs.existsSync(gsd)
+        ? { id: 'passport.gsd', status: 'ok', detail: 'gsd_version: v2, .gsd/ на месте' }
+        : {
+            id: 'passport.gsd',
+            status: 'fail',
+            detail: 'passport gsd_version: v2, но .gsd/ не найдена',
+          },
+    );
+  } else if (v === 'none') {
+    checks.push({
+      id: 'passport.gsd',
+      status: 'ok',
+      detail: 'gsd_version: none (GSD-папок не требуется)',
+    });
+  } else {
+    checks.push({
+      id: 'passport.gsd',
+      status: 'warn',
+      detail: `неизвестное gsd_version: ${v}`,
+    });
+  }
+
+  return checks;
+}
+
+// Прогоняет все проверки. Никогда не кидает: сбои отражаются как checks со status fail/warn.
+// Без projectRoot группы vault и passport помечаются na; config+junctions работают всегда.
+export function runHealth(projectRoot?: string): HealthResult {
   const checks: HealthCheck[] = [];
 
   const cfg = configChecks();
@@ -213,10 +417,32 @@ export function runHealth(): HealthResult {
     });
   }
 
+  if (!projectRoot) {
+    checks.push({
+      id: 'vault.skipped',
+      status: 'na',
+      detail: 'projectRoot не передан — vault не проверено',
+    });
+    checks.push({
+      id: 'passport.skipped',
+      status: 'na',
+      detail: 'projectRoot не передан — passport не проверено',
+    });
+  } else {
+    const passport = readPassport(projectRoot);
+    const projectName =
+      passport.exists && typeof passport.data?.name === 'string' && passport.data.name
+        ? String(passport.data.name)
+        : path.basename(projectRoot);
+    checks.push(...vaultChecks(projectRoot, projectName, cfg.config));
+    checks.push(...passportChecks(projectRoot, passport));
+  }
+
   const summary = {
     ok: checks.filter((c) => c.status === 'ok').length,
     warn: checks.filter((c) => c.status === 'warn').length,
     fail: checks.filter((c) => c.status === 'fail').length,
+    na: checks.filter((c) => c.status === 'na').length,
   };
 
   return { checks, summary };
