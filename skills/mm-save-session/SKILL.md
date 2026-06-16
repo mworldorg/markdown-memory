@@ -1,6 +1,6 @@
 ---
 name: mm-save-session
-version: 0.8.0
+version: 0.8.1
 description: Закрывает текущую Claude Code сессию — сохраняет лог в Obsidian/Claude/Sessions/, обновляет project note, обновляет INDEX.md, перегенерирует handoff.md (для Project Knowledge claude.ai) через /mm-handoff. Если в проекте есть GSD (.planning/ или .gsd/) — также вызывает /gsd-pause-work для technical state в HANDOFF.json. Use when user says "закругляемся", "сохрани", "до завтра", "конец дня", "save session", "/mm-save-session", "закрываемся".
 ---
 
@@ -102,11 +102,11 @@ tags: [claude-session, проект-<project_name>, <topical-tags>]
 - `<hash> <subject>`
 ```
 
-### Шаг 3.5. Scrub секретов ПЕРЕД записью в vault (по SECRET-PATTERNS.md)
+### Шаг 3.5. Scrub секретов ПЕРЕД записью в vault (канон config/secret-patterns.json)
 
 > **Заметка сессии оседает в долговременном vault** (и через Шаги 4–6 её выжимка попадает в project note / INDEX / handoff). Токен, случайно вставленный из кода или git-вывода в «Что сделано», утечёт. Поэтому собранный на Шаге 3 текст прогоняется через фильтр **до** записи.
 
-Переиспользуй единый механизм (как `mm-handoff` Шаг 5.9) — не дублируй список паттернов здесь. Прогони весь собранный текст заметки через паттерны из `<repo>/docs/SECRET-PATTERNS.md`:
+Переиспользуй единый механизм (как `mm-handoff` Шаг 5.9) — не дублируй список паттернов здесь. Прогони весь собранный текст заметки через паттерны из канона `<repo>/config/secret-patterns.json` (пояснение — `<repo>/docs/SECRET-PATTERNS.md`):
 
 1. **Класс A** — маскируй **молча**, типизированным плейсхолдером с сохранением контекста (`TELEGRAM_TOKEN=<REDACTED:telegram-token>` и т.п. — см. doc). Не вырезай строку.
 2. **Класс B** (широкое `[A-Za-z0-9_\-]{32,}`) — **НЕ маскируй** (задевает git SHA-40 / UUID, которых полно в сессиях). Только добавь одну строку-warn в финальный отчёт.
