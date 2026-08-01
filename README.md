@@ -132,6 +132,7 @@ Twelve skills on the Claude Code side, plus one on the claude.ai side — and ve
 | `mm` | Dispatcher — short aliases for everything below |
 | `mm setup` | One-time personalization after cloning |
 | `mm-init-project` | Create a project passport + structure in the vault |
+| `mm-clear-gate` | Read-only gate before `/clear` — verdict from a script's exit code, not a model's claim |
 | `mm-resume` | Load passport + dashboard + last session on start |
 | `mm-projects` | One-screen overview of all projects (read-only) |
 | `mm-bridge` | Wrap a task into a prompt framework for Claude Code |

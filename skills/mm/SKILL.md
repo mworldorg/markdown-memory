@@ -1,6 +1,6 @@
 ---
 name: mm
-version: 0.4.1
+version: 0.4.2
 description: Диспетчер mm-системы — короткая команда вместо длинных. /mm без аргументов = список всех команд. /mm new = init project, /mm save = save session, /mm next = handoff, /mm prompt = bridge, /mm rules = instructions, /mm check = doctor. Use when user types "/mm" anything OR says "что есть в mm", "какие mm команды", "помощь по mm", "mm cheatsheet".
 ---
 
@@ -21,6 +21,7 @@ description: Диспетчер mm-системы — короткая кома�
 | `/mm context` | `/mm-resume` | (синоним resume) |
 | `/mm where` | `/mm-resume` | (синоним resume — «где мы») |
 | `/mm focus` | `/mm-focus` | Перечитать файлы текущего GSD-этапа после /clear (scoped reload) |
+| `/mm gate` | `/mm-clear-gate` | Гейт перед /clear: read-only проверка «всё ли записано», вердикт из exit code (`gate end` — планка конца сессии) |
 | `/mm projects` | `/mm-projects` | Обзор всех проектов одним экраном |
 | `/mm list` | `/mm-projects` | (синоним projects) |
 | `/mm save` | `/mm-save-session` | Сохранить лог сессии в Obsidian |
@@ -65,6 +66,7 @@ description: Диспетчер mm-системы — короткая кома�
   /mm new          оформить или обновить паспорт проекта
   /mm resume       где мы (passport + last session + git + GSD)
   /mm focus        перечитать файлы текущего GSD-этапа после /clear
+  /mm gate         можно ли чистить: вердикт из exit code (gate end — конец сессии)
   /mm projects     обзор всех проектов одним экраном
 
 Работа в сессии:
