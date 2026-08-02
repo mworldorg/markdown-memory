@@ -1,6 +1,6 @@
 ---
 name: mm-init-project
-version: 0.5.2
+version: 0.6.0
 description: Инициализирует или обновляет проект для mm-системы — создаёт passport.md в корне, копию в Obsidian, dashboard.md, handoff.md (скелет), project-instructions.md для claude.ai. Use when user says "оформи проект", "сделай паспорт", "init project", "/mm-init", "/mm-init-project", "обнови паспорт", "регистрирую проект". Работает на пустой папке (новый проект) и на существующем коде с любыми .md файлами (auto-discovery + dry-run preview перед записью). Включает auto-detect стека (~150 фреймворков), dual-detection GSD v1 (.planning/) и v2 (.gsd/), import scope/requirements из GSD-артефактов, secret-grep, детектор рассинхрона между копиями паспорта.
 ---
 
@@ -15,11 +15,11 @@ description: Инициализирует или обновляет проект
 - `<project_root>/CLAUDE.md` — **только** добавляет секции `## Obsidian Knowledge Vault` и `## mm-system` если их нет; **никогда** не редактирует существующие секции
 - `<project_root>/.gitignore` — добавляет правила для игнорирования локальных настроек Obsidian (`.vault/.obsidian/`)
 - Файлы Obsidian Vault (хранилище в `<project_root>/.vault/` при локальном режиме или `<obsidian_projects>/<name>/` при глобальном режиме):
-  - `00-home/index.md` — карта всех заметок
-  - `00-home/текущие приоритеты.md` — текущие приоритеты
-  - `00-home/project-instructions.md` — инструкции для claude.ai
+  - `00-home/index.md` — карта всех заметок; **в режиме update не трогает, если файл есть и непустой**
+  - `00-home/текущие приоритеты.md` — текущие приоритеты; **в режиме update не трогает, если файл есть и непустой**
+  - `project-instructions.md` — инструкции для claude.ai (в корне хранилища, туда же пишет `/mm rules`)
   - `handoff.md` — создаёт **скелет** на старте (в корне хранилища)
-  - `atlas/passport.md` — копия паспорта проекта
+  - `passport.md` — копия паспорта проекта (в корне хранилища; её читают `/mm projects`, `clear-gate.py` и sync-check фазы 1f)
   - `atlas/архитектура проекта.md` — описание архитектуры
   - `atlas/база данных.md` — схема БД
   - `atlas/деплой.md` — информация о деплое
@@ -220,7 +220,9 @@ GSD v2 (`.gsd/`):
 
 ### 1f. Sync-check между копиями паспорта
 
-Если есть и `<project_root>/passport.md` И `<obsidian>/Projects/<name>/passport.md`:
+Копий паспорта ровно две: `<project_root>/passport.md` и `<vault_root>/passport.md`. Тот же путь пишет фаза 4.2 — второго места для паспорта в скилле нет.
+
+Если есть и `<project_root>/passport.md` И `<vault_root>/passport.md`:
 - Сравни sha256 содержимого (или хотя бы mtime + size).
 - Если **расходятся** — это значит юзер редактировал одну из копий (например в Obsidian app). Покажи в Discovery:
   ```
@@ -321,11 +323,11 @@ GSD detection:
 СОЗДАМ:
   + <project>/passport.md (новый файл, <N> секций)
     Источники: README.md, package.json, etc.
-  + <vault_root>/00-home/index.md (карта всех заметок)
-  + <vault_root>/00-home/текущие приоритеты.md (активные приоритеты)
-  + <vault_root>/00-home/project-instructions.md (инструкции для claude.ai)
+  + <vault_root>/00-home/index.md (карта всех заметок; в update — только если файла нет или он пуст)
+  + <vault_root>/00-home/текущие приоритеты.md (активные приоритеты; в update — только если файла нет или он пуст)
+  + <vault_root>/project-instructions.md (инструкции для claude.ai)
   + <vault_root>/handoff.md (скелет)
-  + <vault_root>/atlas/passport.md (копия паспорта)
+  + <vault_root>/passport.md (копия паспорта)
   + <vault_root>/atlas/архитектура проекта.md (архитектура)
   + <vault_root>/atlas/база данных.md (схемы БД)
   + <vault_root>/atlas/деплой.md (информация о деплое)
@@ -391,15 +393,17 @@ Frontmatter: `created` из существующего файла или сег�
 ### 4.2. Сгенерируй файлы Obsidian Vault в памяти
 
 **Сгенерируй структуру и контент для файлов базы знаний:**
+> **Guard режима update** (по образцу `handoff.md`): `00-home/index.md` и `00-home/текущие приоритеты.md` — живой курируемый контент, их владелец `/mm save`, а не инициализатор. В режиме **update** не трогай их, если файл существует и непустой; генерируй только в режиме **init** или когда файла нет/он пуст. Затирать накопленное содержимое нельзя.
+
 1. **`00-home/index.md`**: Карта всех файлов в Vault. На старте содержит ссылки на `[[текущие приоритеты]]`, `[[project-instructions]]`, `[[handoff]]`, `[[atlas/passport|паспорт проекта]]`, `[[atlas/архитектура проекта]]`, `[[atlas/база данных]]`, `[[atlas/деплой.md]]` и заглушки для подразделов в `knowledge/` и `sessions/`. Если `telethon_project == true`, добавь также ссылку на `[[knowledge/integrations/telethon-sessions|инструкцию по сессиям Telethon]]`. Если `tg_bot_project == true`, добавь также ссылку на `[[knowledge/patterns/tg-bot-ui-ux|инструкцию по UI/UX ботов Telegram]]`.
 2. **`00-home/текущие приоритеты.md`**: Содержит текущий milestone и приоритетные задачи, извлеченные из GSD или Discovery (на старте).
-3. **`00-home/project-instructions.md`**: Возьми `<skills_repo>/templates/project-instructions.md`, подставь `<PROJECT_NAME>`, замени пути к файлам на новые пути в структуре базы (например, `00-home/index.md` вместо `dashboard.md`), добавь топ-3 пункта из секции 8 паспорта.
+3. **`project-instructions.md`** (в корне Vault — туда же пишет `/mm rules`, второго места быть не должно): Возьми `<skills_repo>/templates/project-instructions.md`, подставь `<PROJECT_NAME>`, замени пути к файлам на новые пути в структуре базы (например, `00-home/index.md` вместо `dashboard.md`), добавь топ-3 пункта из секции 8 паспорта.
    - Если `telethon_project == true`, добавь в инструкции для ИИ блок:
      * `Этот проект использует Telethon. При написании кода по работе с сессиями/аккаунтами руководствуйся правилами из [[knowledge/integrations/telethon-sessions.md]].`
    - Если `tg_bot_project == true`, добавь в инструкции для ИИ блок:
      * `При создании диалогов, кнопок, FSM-сценариев и форматировании сообщений следуй правилам из [[knowledge/patterns/tg-bot-ui-ux.md]].`
 4. **`handoff.md` (в корне Vault)**: Скелет handoff (шаблон см. в Appendix). В режиме **update** не трогай, если файл уже существует.
-5. **`atlas/passport.md`**: Копия сгенерированного `passport.md`.
+5. **`passport.md`** (в корне Vault): Копия сгенерированного `<project_root>/passport.md`. Именно эту копию читают `/mm projects`, `clear-gate.py` и sync-check фазы 1f — `atlas/passport.md` не создавай, иначе появится вторая копия, которую никто не читает и которая разъедется по датам.
 6. **`atlas/архитектура проекта.md`**: Содержит описание архитектуры из секции 3 паспорта.
 7. **`atlas/база данных.md`**: Содержит модели данных из секции 6 паспорта.
 8. **`atlas/деплой.md`**: Содержит инструкции и команды деплоя из секции 5/2 паспорта.
@@ -456,11 +460,11 @@ Frontmatter: `created` из существующего файла или сег�
 1. Создай директорию Vault (`<project_root>/.vault/` или глобальную) и все подпапки: `00-home/`, `atlas/`, `knowledge/integrations/`, `knowledge/decisions/`, `knowledge/debugging/`, `knowledge/patterns/`, `knowledge/business/`, `sessions/`, `inbox/`.
 2. Запиши `<project>/passport.md`.
 3. Запиши файлы в Vault:
-   - `<vault>/00-home/index.md`
-   - `<vault>/00-home/текущие приоритеты.md`
-   - `<vault>/00-home/project-instructions.md`
+   - `<vault>/00-home/index.md` (в режиме update — только если не существует или пуст)
+   - `<vault>/00-home/текущие приоритеты.md` (в режиме update — только если не существует или пуст)
+   - `<vault>/project-instructions.md`
    - `<vault>/handoff.md` (только если не существует)
-   - `<vault>/atlas/passport.md`
+   - `<vault>/passport.md`
    - `<vault>/atlas/архитектура проекта.md`
    - `<vault>/atlas/база данных.md`
    - `<vault>/atlas/деплой.md`
@@ -514,11 +518,11 @@ Frontmatter: `created` из существующего файла или сег�
 
 Записано:
   ✓ <project>/passport.md
-  ✓ <vault>/00-home/index.md (карта всех заметок)
-  ✓ <vault>/00-home/текущие приоритеты.md (активные приоритеты)
-  ✓ <vault>/00-home/project-instructions.md (инструкции для claude.ai)
+  ✓ <vault>/00-home/index.md (карта всех заметок; в update пропущен, если был непустой)
+  ✓ <vault>/00-home/текущие приоритеты.md (активные приоритеты; в update пропущен, если был непустой)
+  ✓ <vault>/project-instructions.md (инструкции для claude.ai)
   ✓ <vault>/handoff.md (скелет)
-  ✓ <vault>/atlas/passport.md (копия паспорта)
+  ✓ <vault>/passport.md (копия паспорта)
   ✓ <vault>/atlas/архитектура проекта.md
   ✓ <vault>/atlas/база данных.md
   ✓ <vault>/atlas/деплой.md

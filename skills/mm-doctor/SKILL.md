@@ -1,6 +1,6 @@
 ---
 name: mm-doctor
-version: 0.5.0
+version: 0.6.0
 description: Самопроверка mm-системы — junction'ы, конфиг, vault, паспорта, bridge-архив, GSD-консистентность (passport vs PROJECT.md), наличие сторонних плагинов (karpathy, context-mode). Auto-fix очевидного. Use when user says "проверь систему", "почему не работает", "/mm-doctor", "mm-status", "что-то сломалось", "проверь mm", "mm health". Запускать перед началом работы на новой машине ИЛИ когда что-то странно себя ведёт.
 ---
 
@@ -92,9 +92,10 @@ $item.Target  # должно совпадать с <repo>/skills/mm-bridge
 - ✅ Ключевые файлы базы знаний существуют:
   - `00-home/index.md`
   - `00-home/текущие приоритеты.md`
-  - `00-home/project-instructions.md`
+  - `project-instructions.md` (в корне хранилища — туда пишут и `/mm rules`, и `/mm new`)
   - `handoff.md` (скелет или полный)
-  - `atlas/passport.md` (копия)
+  - `passport.md` (копия, в корне хранилища — её читают `/mm projects` и `clear-gate.py`)
+  - ⚠️ Если рядом лежит `atlas/passport.md` — это дубль от старой раскладки, который никто не читает: `⚠️ atlas/passport.md — дубль паспорта, удали его вручную, источник это <vault>/passport.md.`
 - ✅ В `CLAUDE.md` присутствует секция `## Obsidian Knowledge Vault` с правильным путем к базе знаний.
 - ✅ Sync с копией паспорта в базе знаний (sha256): совпадают?
 - ⚠️ handoff.md существует. Если нет → `⚠️ handoff.md отсутствует — запусти /mm save (или /mm next) чтобы создать; он нужен для Project Knowledge claude.ai.`
