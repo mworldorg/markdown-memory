@@ -22,6 +22,11 @@ from datetime import datetime, timezone
 
 BLOCKER, UNKNOWN, WARN, OK, NA = "blocker", "unknown", "warn", "ok", "na"
 
+# Отставание handoff меньше этого порога — шум: /gsd-pause-work пишет handoff, а
+# коммит идёт следом через секунды. Блокер на таком отставании приучает
+# пролистывать вердикт, и гейт перестаёт работать там, где нужен.
+HANDOFF_STALE_TOLERANCE_MIN = 5
+
 
 class Finding:
     def __init__(self, level, title, details=None, fix=None):
@@ -234,8 +239,12 @@ def check_vault(proj, projects_root):
 
     vname = os.path.basename(vault)
     if not os.path.exists(os.path.join(vault, ".git")):
-        return Finding(WARN, f"Vault {vname} не git-репозиторий — записанное никуда не едет",
-                       fix="/mm vault")
+        # Блокер, а не предупреждение: без git у vault нет ни синхронизации с
+        # Knowledge, ни истории, ни восстановления — потерять можно всё и молча.
+        # Мягкая планка была вынужденной, пока часть vault'ов жила вне git.
+        return Finding(BLOCKER, f"Vault {vname} не git-репозиторий — ни синхронизации, "
+                                "ни истории, ни восстановления",
+                       details=[vault], fix="/mm vault")
 
     rc_st, dirty = run(["git", "-C", vault, "status", "--porcelain", "--untracked-files=all"])
     if rc_st != 0:
@@ -294,6 +303,10 @@ def check_handoff(proj):
         return Finding(BLOCKER, "Handoff не создавался — состояние работы нигде не записано",
                        fix="/gsd-pause-work")
     if t_ho < t_work:
+        lag_min = int((t_work - t_ho).total_seconds()) // 60
+        if lag_min < HANDOFF_STALE_TOLERANCE_MIN:
+            return Finding(OK, f"Handoff отстаёт на {delta(t_work, t_ho)} — в пределах порога "
+                               f"{HANDOFF_STALE_TOLERANCE_MIN}м, не блокер")
         return Finding(BLOCKER,
                        f"Handoff устарел: {fmt(t_ho)}, работа до {fmt(t_work)} "
                        f"(+{delta(t_work, t_ho)})",
@@ -392,6 +405,8 @@ def render(name, mode, findings):
 
     verdict = "НЕ ГОТОВО · exit 1" if (blockers or unknowns) else "ГОТОВО К /clear · exit 0"
     out.append(f"── ВЕРДИКТ: {verdict} ──")
+    out.append(f"порог свежести handoff: {HANDOFF_STALE_TOLERANCE_MIN} мин "
+               "(меньше — не блокер)")
     out.append("fetch не выполнялся (read-only): behind-состояние может быть устаревшим")
     return "\n".join(out)
 
