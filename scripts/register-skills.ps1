@@ -36,6 +36,80 @@ if ($existingEnv -ieq $RepoRoot) {
 }
 Write-Host ""
 
+# --- Раскатка секций в ~/.claude/CLAUDE.md (по маркерам, чужое не трогаем) ---
+# Источник: templates/claude-md/*.md, id секции = имя файла без .md.
+# Логика обязана совпадать с register-skills.py — расхождение станет источником багов.
+$TplDir    = Join-Path $RepoRoot "templates\claude-md"
+$ClaudeMd  = Join-Path $env:USERPROFILE ".claude\CLAUDE.md"
+$secAdded = 0; $secUpdated = 0; $secSkipped = 0; $secChanged = 0; $secErrors = 0
+
+function Get-Sha8([string]$text) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($text))
+    return (($bytes | ForEach-Object { $_.ToString("x2") }) -join "").Substring(0, 8)
+}
+
+if (Test-Path $TplDir) {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    foreach ($tpl in @(Get-ChildItem -File -Filter *.md $TplDir)) {
+        $id  = [IO.Path]::GetFileNameWithoutExtension($tpl.Name)
+        $raw = ([IO.File]::ReadAllText($tpl.FullName)) -replace "`r`n", "`n"
+        $raw = $raw.TrimEnd()
+        $sha = Get-Sha8 $raw
+
+        $existed = Test-Path $ClaudeMd
+        $text    = if ($existed) { [IO.File]::ReadAllText($ClaudeMd) } else { "" }
+        $eol     = if ($text -match "`r`n") { "`r`n" } else { "`n" }
+
+        $begin = "<!-- mm:begin $id sha=$sha -->"
+        $end   = "<!-- mm:end $id -->"
+        $block = $begin + $eol + ($raw -replace "`n", $eol) + $eol + $end
+
+        # Осиротевший маркер: дописать вторую копию тихо хуже, чем отказаться —
+        # Claude Code читает этот файл при каждом запуске.
+        $hasBegin = [regex]::IsMatch($text, "<!-- mm:begin " + [regex]::Escape($id) + "(?: sha=[0-9a-f]+)? -->")
+        $hasEnd   = [regex]::IsMatch($text, "<!-- mm:end " + [regex]::Escape($id) + " -->")
+        if ($hasBegin -ne $hasEnd) {
+            $which = if ($hasBegin) { "mm:begin without matching mm:end" } else { "mm:end without matching mm:begin" }
+            Write-Host "  [error] section $id -> $which" -ForegroundColor Red
+            Write-Host "          file: $ClaudeMd" -ForegroundColor Red
+            Write-Host "          left unchanged; fix the markers by hand, then re-run" -ForegroundColor Red
+            $secErrors++
+            continue
+        }
+
+        $rx = [regex]("(?s)<!-- mm:begin " + [regex]::Escape($id) + "(?: sha=([0-9a-f]+))? -->(.*?)<!-- mm:end " + [regex]::Escape($id) + " -->")
+        $m  = $rx.Match($text)
+
+        if ($m.Success) {
+            $inner = ($m.Groups[2].Value -replace "`r`n", "`n").Trim()
+            if ($inner -eq $raw) {
+                Write-Host "  [skip] section $id -> up to date" -ForegroundColor DarkGray
+                $secSkipped++
+                continue
+            }
+            if ($m.Groups[1].Value -ne (Get-Sha8 $inner)) {
+                $bak = "$ClaudeMd.bak-" + (Get-Date -Format "yyyyMMdd-HHmmss")
+                Copy-Item $ClaudeMd $bak
+                Write-Host "  [changed] section $id -> block was hand-edited, it will be overwritten" -ForegroundColor Yellow
+                Write-Host "            backup: $bak" -ForegroundColor Yellow
+                $secChanged++
+            } else {
+                Write-Host "  [update] section $id -> template changed" -ForegroundColor Green
+                $secUpdated++
+            }
+            $text = $text.Substring(0, $m.Index) + $block + $text.Substring($m.Index + $m.Length)
+        } else {
+            if ($text -and -not $text.EndsWith($eol)) { $text += $eol }
+            $text = $text + $eol + $block + $eol
+            Write-Host "  [ok]   section $id -> added" -ForegroundColor Green
+            $secAdded++
+        }
+        [IO.File]::WriteAllText($ClaudeMd, $text, $utf8NoBom)
+    }
+    Write-Host ""
+}
+
 $skills = @(Get-ChildItem -Directory $SourceDir)
 if (Test-Path $VendorDir) { $skills += Get-ChildItem -Directory $VendorDir }
 $created = 0; $skipped = 0; $relinked = 0; $errors = 0
@@ -83,4 +157,5 @@ foreach ($skill in $skills) {
 
 Write-Host ""
 Write-Host "Summary: created=$created relinked=$relinked skipped=$skipped errors=$errors"
-if ($errors -gt 0) { exit 1 }
+Write-Host "Sections: added=$secAdded updated=$secUpdated skipped=$secSkipped hand-edited=$secChanged errors=$secErrors"
+if ($errors -gt 0 -or $secErrors -gt 0) { exit 1 }

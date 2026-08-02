@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+import hashlib
 import os
-import sys
+import re
+import shutil
 import subprocess
+import sys
 import platform
+import time
 
 def resolve_target(path):
     try:
@@ -22,6 +26,94 @@ def resolve_target(path):
             except Exception:
                 pass
         return None
+
+def _sha8(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]
+
+
+def deploy_claude_md_sections(repo_root, home):
+    """Раскатать templates/claude-md/*.md в ~/.claude/CLAUDE.md по маркерам.
+
+    Пишем строго между <!-- mm:begin id --> и <!-- mm:end id -->, чужой текст
+    не читаем и не трогаем. sha в маркере = хеш того, что раскатали в прошлый
+    раз: если он разошёлся с текущим содержимым блока, значит блок правили
+    руками — предупреждаем и делаем бэкап перед перезаписью.
+
+    Логика обязана совпадать с register-skills.ps1 — расхождение между
+    реализациями само станет источником багов.
+    """
+    tpl_dir = os.path.join(repo_root, "templates", "claude-md")
+    if not os.path.isdir(tpl_dir):
+        return 0, 0, 0, 0, 0
+
+    claude_md = os.path.join(home, ".claude", "CLAUDE.md")
+    added = updated = skipped = changed = errors = 0
+
+    for fname in sorted(os.listdir(tpl_dir)):
+        if not fname.endswith(".md"):
+            continue
+        sid = fname[:-3]
+        with open(os.path.join(tpl_dir, fname), encoding="utf-8") as f:
+            raw = f.read().replace("\r\n", "\n").rstrip()
+        sha = _sha8(raw)
+
+        text = ""
+        if os.path.isfile(claude_md):
+            with open(claude_md, encoding="utf-8", newline="") as f:
+                text = f.read()
+        eol = "\r\n" if "\r\n" in text else "\n"
+
+        begin = f"<!-- mm:begin {sid} sha={sha} -->"
+        end = f"<!-- mm:end {sid} -->"
+        block = begin + eol + raw.replace("\n", eol) + eol + end
+
+        # Осиротевший маркер: дописать вторую копию тихо хуже, чем отказаться —
+        # Claude Code читает этот файл при каждом запуске.
+        has_begin = re.search(r"<!-- mm:begin " + re.escape(sid) + r"(?: sha=[0-9a-f]+)? -->", text) is not None
+        has_end = re.search(r"<!-- mm:end " + re.escape(sid) + r" -->", text) is not None
+        if has_begin != has_end:
+            which = ("mm:begin without matching mm:end" if has_begin
+                     else "mm:end without matching mm:begin")
+            print(f"  [error] section {sid} -> {which}")
+            print(f"          file: {claude_md}")
+            print(f"          left unchanged; fix the markers by hand, then re-run")
+            errors += 1
+            continue
+
+        pattern = (r"<!-- mm:begin " + re.escape(sid) + r"(?: sha=([0-9a-f]+))? -->"
+                   r"(.*?)<!-- mm:end " + re.escape(sid) + r" -->")
+        m = re.search(pattern, text, re.S)
+
+        if m:
+            inner = m.group(2).replace("\r\n", "\n").strip()
+            if inner == raw:
+                print(f"  [skip] section {sid} -> up to date")
+                skipped += 1
+                continue
+            if m.group(1) != _sha8(inner):
+                bak = claude_md + ".bak-" + time.strftime("%Y%m%d-%H%M%S")
+                shutil.copyfile(claude_md, bak)
+                print(f"  [changed] section {sid} -> block was hand-edited, it will be overwritten")
+                print(f"            backup: {bak}")
+                changed += 1
+            else:
+                print(f"  [update] section {sid} -> template changed")
+                updated += 1
+            text = text[:m.start()] + block + text[m.end():]
+        else:
+            if text and not text.endswith(eol):
+                text += eol
+            text = text + eol + block + eol
+            print(f"  [ok]   section {sid} -> added")
+            added += 1
+
+        with open(claude_md, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+
+    if added or updated or skipped or changed or errors:
+        print("")
+    return added, updated, skipped, changed, errors
+
 
 def main():
     repo_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
@@ -103,6 +195,8 @@ def main():
                     print(f"[env] MM_REPO_ROOT already configured in {profile_path}")
             else:
                 print(f"[env] Warning: Could not find or create profile path {profile_path}")
+
+    sec_added, sec_updated, sec_skipped, sec_changed, sec_errors = deploy_claude_md_sections(repo_root, home)
 
     skills = []
     if os.path.exists(source_dir):
@@ -230,7 +324,8 @@ def main():
             print(f"[antigravity] Warning: Could not register global instructions: {e}")
             
     print(f"\nSummary: created={created} relinked={relinked} skipped={skipped} errors={errors}")
-    if errors > 0:
+    print(f"Sections: added={sec_added} updated={sec_updated} skipped={sec_skipped} hand-edited={sec_changed} errors={sec_errors}")
+    if errors > 0 or sec_errors > 0:
         sys.exit(1)
 
 if __name__ == "__main__":
