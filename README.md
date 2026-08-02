@@ -119,7 +119,7 @@ python3 scripts/register-skills.py
 /mm resume   →   discuss in claude.ai   →   paste prompt into Claude Code   →   /mm save   →   /mm next
 ```
 
-**On GSD projects**, when you finish a phase stage and want a clean context, run `/clear` then [`/mm-focus`](skills/mm-focus/SKILL.md) instead of a bare `/clear` — `mm-focus` reloads the current stage's files (STATE + CONTEXT/PLAN/SUMMARY) into the fresh context so you continue without losing your place.
+**On GSD projects**, run [`/mm gate`](skills/mm-clear-gate/SKILL.md) before `/clear` and read its exit-code verdict; after `/clear`, restore your place with `/gsd-resume-work`. (`/mm-focus` was [retired on 2026-08-02](skills/mm-focus/SKILL.md) — its stage detection duplicated `/gsd-resume-work` and silently loaded the wrong files.)
 
 ---
 

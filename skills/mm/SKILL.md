@@ -1,6 +1,6 @@
 ---
 name: mm
-version: 0.4.2
+version: 0.4.3
 description: Диспетчер mm-системы — короткая команда вместо длинных. /mm без аргументов = список всех команд. /mm new = init project, /mm save = save session, /mm next = handoff, /mm prompt = bridge, /mm rules = instructions, /mm check = doctor. Use when user types "/mm" anything OR says "что есть в mm", "какие mm команды", "помощь по mm", "mm cheatsheet".
 ---
 
@@ -20,7 +20,7 @@ description: Диспетчер mm-системы — короткая кома�
 | `/mm start` | `/mm-resume` | (синоним resume — для начала сессии) |
 | `/mm context` | `/mm-resume` | (синоним resume) |
 | `/mm where` | `/mm-resume` | (синоним resume — «где мы») |
-| `/mm focus` | `/mm-focus` | Перечитать файлы текущего GSD-этапа после /clear (scoped reload) |
+| `/mm focus` | `/mm-focus` | ~~scoped reload GSD-этапа~~ — **СНЯТ 2026-08-02**, дублировал `/gsd-resume-work` и грузил не то. Вместо него: `/gsd-resume-work` |
 | `/mm gate` | `/mm-clear-gate` | Гейт перед /clear: read-only проверка «всё ли записано», вердикт из exit code (`gate end` — планка конца сессии) |
 | `/mm projects` | `/mm-projects` | Обзор всех проектов одним экраном |
 | `/mm list` | `/mm-projects` | (синоним projects) |
@@ -65,7 +65,7 @@ description: Диспетчер mm-системы — короткая кома�
 Старт нового / открытие проекта:
   /mm new          оформить или обновить паспорт проекта
   /mm resume       где мы (passport + last session + git + GSD)
-  /mm focus        перечитать файлы текущего GSD-этапа после /clear
+  /mm focus        СНЯТ 2026-08-02 → используй /gsd-resume-work
   /mm gate         можно ли чистить: вердикт из exit code (gate end — конец сессии)
   /mm projects     обзор всех проектов одним экраном
 
