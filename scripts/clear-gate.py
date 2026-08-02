@@ -20,7 +20,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-BLOCKER, WARN, OK, NA = "blocker", "warn", "ok", "na"
+BLOCKER, UNKNOWN, WARN, OK, NA = "blocker", "unknown", "warn", "ok", "na"
 
 
 class Finding:
@@ -63,18 +63,72 @@ def load_config(repo_root):
     return cfg
 
 
+def passport_field(passport, key):
+    """Значение поля из frontmatter passport.md, иначе None."""
+    if not os.path.isfile(passport):
+        return None
+    try:
+        with open(passport, encoding="utf-8") as f:
+            head = f.read(4000)
+    except OSError:
+        return None
+    m = re.search(r"^%s:\s*(.+?)\s*$" % re.escape(key), head, re.M)
+    return m.group(1).strip() if m else None
+
+
 def project_name(proj):
-    passport = os.path.join(proj, "passport.md")
-    if os.path.isfile(passport):
-        try:
-            with open(passport, encoding="utf-8") as f:
-                head = f.read(2000)
-            m = re.search(r"^project:\s*(.+?)\s*$", head, re.M)
-            if m:
-                return m.group(1).strip()
-        except OSError:
-            pass
-    return os.path.basename(proj)
+    return passport_field(os.path.join(proj, "passport.md"), "project") or os.path.basename(proj)
+
+
+def resolve_vault(proj, projects_root):
+    """Найти vault проекта. Возвращает (path, how, note).
+
+    path=None означает, что vault не определён — по how видно, это положительно
+    установленное отсутствие ('none') или невозможность определить (остальное).
+    """
+    if not projects_root or not os.path.isdir(projects_root):
+        return None, "no_root", projects_root or "путь obsidian_projects не задан в конфиге"
+
+    # 1. passport.md в корне проекта называет имя папки vault
+    name = passport_field(os.path.join(proj, "passport.md"), "project")
+    if name:
+        p = os.path.join(projects_root, name)
+        if os.path.isdir(p):
+            return p, "passport", name
+        return None, "passport_no_dir", f"passport.md называет проект «{name}», папки {p} нет"
+
+    # 2. артефакты внутри Projects/<vault>/ объявляют project_path — ищем свой.
+    #    passport.md его не содержит (поле пишут handoff и файлы сессий), поэтому
+    #    смотрим и там тоже, иначе связь проект↔vault не находится вовсе.
+    target = os.path.normcase(os.path.abspath(proj))
+    matches = []
+    try:
+        entries = sorted(os.listdir(projects_root))
+    except OSError:
+        entries = []
+    for entry in entries:
+        vdir = os.path.join(projects_root, entry)
+        if not os.path.isdir(vdir):
+            continue
+        candidates = [os.path.join(vdir, "passport.md"), os.path.join(vdir, "handoff.md")]
+        sessions = sorted(glob.glob(os.path.join(vdir, "sessions", "*.md")),
+                          key=lambda p: os.path.getmtime(p), reverse=True)[:10]
+        for src in candidates + sessions:
+            declared = passport_field(src, "project_path")
+            if declared and os.path.normcase(os.path.abspath(declared.strip('"'))) == target:
+                matches.append(entry)
+                break
+    if len(matches) == 1:
+        return os.path.join(projects_root, matches[0]), "project_path", matches[0]
+    if len(matches) > 1:
+        return None, "ambiguous", "этот project_path объявляют: " + ", ".join(matches)
+
+    # 3. папка по имени проекта
+    base = os.path.basename(proj)
+    p = os.path.join(projects_root, base)
+    if os.path.isdir(p):
+        return p, "basename", base
+    return None, "unlinked", base
 
 
 def mtime_of(path):
@@ -152,33 +206,69 @@ def check_push(proj):
     return Finding(OK, f"Запушено: HEAD == {upstream}")
 
 
-def check_vault(vault):
-    if not vault or not os.path.isdir(vault):
-        return Finding(WARN, "Vault-папка не найдена", details=[vault or "путь не определён"],
-                       fix="/mm vault")
+UNRESOLVED = {
+    "no_root": "каталог Projects не найден",
+    "ambiguous": "этот путь объявляют несколько vault — какой из них наш, неизвестно",
+    "unlinked": "в корне проекта нет passport.md, и ни один vault не объявляет этот путь — "
+                "связь проект↔vault не установлена",
+}
+
+
+def check_vault(proj, projects_root):
+    """Три исхода: проверено и чисто · проверено и есть проблема · НЕ ПРОВЕРЕНО.
+
+    «Не проверено» — это не «не найдено»: гейт не смог посмотреть и потому не
+    вправе утверждать, что всё записано.
+    """
+    vault, how, note = resolve_vault(proj, projects_root)
+
+    if vault is None:
+        if how == "passport_no_dir":
+            # Отсутствие установлено положительно: паспорт называет проект,
+            # значит имя vault известно — и такой папки нет.
+            return Finding(WARN, "Vault не заведён — проекту некуда писать память",
+                           details=[note], fix="/mm vault")
+        return Finding(UNKNOWN,
+                       f"Vault НЕ ПРОВЕРЕН — {UNRESOLVED.get(how, how)}. Состояние vault неизвестно",
+                       details=[note], fix="/mm new (паспорт в корне проекта) либо /mm vault")
+
+    vname = os.path.basename(vault)
     if not os.path.exists(os.path.join(vault, ".git")):
-        return Finding(WARN, "Vault не git-репозиторий — записанное никуда не едет",
+        return Finding(WARN, f"Vault {vname} не git-репозиторий — записанное никуда не едет",
                        fix="/mm vault")
-    _, dirty = run(["git", "-C", vault, "status", "--porcelain", "--untracked-files=all"])
+
+    rc_st, dirty = run(["git", "-C", vault, "status", "--porcelain", "--untracked-files=all"])
+    if rc_st != 0:
+        return Finding(UNKNOWN, f"Vault НЕ ПРОВЕРЕН — git status в {vname} не отработал. "
+                                "Состояние vault неизвестно", details=[vault])
     lines = [l for l in dirty.splitlines() if l.strip()]
+
+    rc_up, upstream = run(["git", "-C", vault, "rev-parse", "--abbrev-ref",
+                           "--symbolic-full-name", "@{u}"])
+    if rc_up != 0 or not upstream:
+        return Finding(UNKNOWN, f"Vault НЕ ПРОВЕРЕН на запушенность — у ветки {vname} нет upstream. "
+                                "Доехало ли записанное до Knowledge, неизвестно",
+                       details=[f"незакоммичено файлов: {len(lines)}"] if lines else [],
+                       fix="/mm vault")
+
     rc, out = run(["git", "-C", vault, "rev-list", "--left-right", "--count", "HEAD...@{u}"])
-    ahead = behind = 0
-    if rc == 0:
-        try:
-            ahead, behind = (int(x) for x in out.split())
-        except ValueError:
-            pass
+    try:
+        ahead, behind = (int(x) for x in out.split())
+    except ValueError:
+        return Finding(UNKNOWN, f"Vault НЕ ПРОВЕРЕН — не удалось сравнить {vname} с {upstream}. "
+                                "Состояние vault неизвестно", details=[vault])
+
     problems = []
     if lines:
         problems.append(f"незакоммичено {len(lines)} файл(ов)")
     if ahead:
         problems.append(f"не запушено {ahead} коммит(ов)")
     if problems:
-        return Finding(BLOCKER, "Vault расходится: " + ", ".join(problems),
+        return Finding(BLOCKER, f"Vault {vname} расходится: " + ", ".join(problems),
                        details=lines[:10], fix="/mm save (закоммитит и запушит vault)")
     if behind:
-        return Finding(WARN, f"Vault отстаёт от origin на {behind}", fix="git -C <vault> pull")
-    return Finding(OK, "Vault: чисто, синхронно")
+        return Finding(WARN, f"Vault {vname} отстаёт от origin на {behind}", fix="git -C <vault> pull")
+    return Finding(OK, f"Vault {vname}: чисто, синхронно (найден по {how})")
 
 
 HANDOFF_EXCLUDES = [
@@ -217,8 +307,10 @@ def check_session_log(proj, vault):
     t_commit = git_iso(out) if rc == 0 else None
     if not t_commit:
         return Finding(NA, "Лог сессии: коммитов нет")
-    sessions = os.path.join(vault, "sessions") if vault else None
-    files = glob.glob(os.path.join(sessions, "*.md")) if sessions else []
+    if not vault:
+        return Finding(UNKNOWN, "Лог сессии НЕ ПРОВЕРЕН — vault не определён, искать логи негде",
+                       fix="/mm new (паспорт в корне проекта) либо /mm vault")
+    files = glob.glob(os.path.join(vault, "sessions", "*.md"))
     t_log, path = newest(files)
     if not t_log:
         return Finding(BLOCKER, "Лог сессии не найден", fix="/mm save")
@@ -261,6 +353,7 @@ def render(name, mode, findings):
     out = [f"🚦 /mm gate · {name} · режим {mode_label}", ""]
 
     blockers = [f for f in findings if f.level == BLOCKER]
+    unknowns = [f for f in findings if f.level == UNKNOWN]
     warns = [f for f in findings if f.level == WARN]
     passed = [f for f in findings if f.level in (OK, NA)]
 
@@ -268,6 +361,15 @@ def render(name, mode, findings):
         out.append(f"⛔ БЛОКЕРЫ ({len(blockers)}) — чистить нельзя")
         for i, f in enumerate(blockers, 1):
             out.append(f" {i}. {f.title}")
+            out.extend(f"    {d}" for d in f.details)
+            if f.fix:
+                out.append(f"    → {f.fix}")
+        out.append("")
+
+    if unknowns:
+        out.append(f"❓ НЕ ПРОВЕРЕНО ({len(unknowns)}) — считается за блокер")
+        for f in unknowns:
+            out.append(f" • {f.title}")
             out.extend(f"    {d}" for d in f.details)
             if f.fix:
                 out.append(f"    → {f.fix}")
@@ -288,7 +390,7 @@ def render(name, mode, findings):
             out.append(f" • {f.title}")
         out.append("")
 
-    verdict = "НЕ ГОТОВО · exit 1" if blockers else "ГОТОВО К /clear · exit 0"
+    verdict = "НЕ ГОТОВО · exit 1" if (blockers or unknowns) else "ГОТОВО К /clear · exit 0"
     out.append(f"── ВЕРДИКТ: {verdict} ──")
     out.append("fetch не выполнялся (read-only): behind-состояние может быть устаревшим")
     return "\n".join(out)
@@ -311,7 +413,7 @@ def main():
     cfg = load_config(repo_root)
     name = project_name(proj)
     projects_root = cfg.get("paths", {}).get("obsidian_projects")
-    vault = os.path.join(projects_root, name) if projects_root else None
+    vault, _, _ = resolve_vault(proj, projects_root)
 
     handoff = check_handoff(proj)
     tree = check_tree(proj)
@@ -328,13 +430,13 @@ def main():
         tree.level = BLOCKER
         tree.title += " — при устаревшем handoff это потеря"
 
-    findings = [handoff, check_vault(vault), tree, push]
+    findings = [handoff, check_vault(proj, projects_root), tree, push]
     if args.mode == "end":
         findings.append(check_session_log(proj, vault))
     findings.append(check_health(proj))
 
     print(render(name, args.mode, findings))
-    return 1 if any(f.level == BLOCKER for f in findings) else 0
+    return 1 if any(f.level in (BLOCKER, UNKNOWN) for f in findings) else 0
 
 
 if __name__ == "__main__":
