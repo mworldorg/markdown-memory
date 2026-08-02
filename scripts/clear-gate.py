@@ -335,6 +335,142 @@ def check_session_log(proj, vault):
     return Finding(OK, f"Лог сессии свежий: {fmt(t_log)}")
 
 
+def gsd_query(proj, *query_args):
+    """(ok, data) от `gsd-tools query ...`. Никогда не бросает.
+
+    ok=False означает «спросить не удалось» (нет gsd-tools / вывод не разобран),
+    а НЕ «ответ отрицательный» — вызывающий обязан различать эти случаи.
+    """
+    tools = os.path.join(os.path.expanduser("~"), ".claude", "gsd-core", "bin", "gsd-tools.cjs")
+    if os.path.isfile(tools):
+        cmd = ["node", tools, "query", *query_args]
+    elif shutil.which("gsd-tools"):
+        cmd = ["gsd-tools", "query", *query_args]
+    else:
+        return False, None
+    _rc, out = run(cmd, cwd=proj)
+    try:
+        return True, json.loads(out[out.index("{"):])
+    except (ValueError, json.JSONDecodeError):
+        return False, None
+
+
+def current_milestone(proj):
+    """Значение `milestone:` из frontmatter STATE.md, иначе None.
+
+    Читаем файл целиком и режем frontmatter по разделителям: f.tell() внутри
+    `for line in f` бросает OSError («telling position disabled by next()»),
+    и попытка ограничить поиск через него молча возвращала None.
+    """
+    try:
+        with open(os.path.join(proj, ".planning", "STATE.md"), encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return None
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        m = re.match(r"^milestone:\s*(.+?)\s*$", line)
+        if m:
+            return m.group(1).strip().strip('"\'')
+    return None
+
+
+def roadmap_complete_phases(proj, milestone):
+    """[(номер, заголовок)] фаз, помеченных Complete в таблице Progress ROADMAP.
+
+    Только текущий milestone: отгруженные архивные вехи трогать поздно, а гейт,
+    краснеющий на том, что никто не пойдёт чинить, начинают пролистывать — и он
+    перестаёт работать там, где нужен.
+    """
+    rows = []
+    try:
+        with open(os.path.join(proj, ".planning", "ROADMAP.md"), encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return rows
+    for line in text.splitlines():
+        if not line.startswith("|"):
+            continue
+        cols = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cols) < 4:
+            continue
+        num = re.match(r"^(\d+)\.", cols[0])
+        if not num:                       # заголовок таблицы или разделитель
+            continue
+        if milestone and cols[1] != milestone:
+            continue
+        if cols[3].strip().lower() != "complete":
+            continue                      # Deferred / In Progress / partial — не наш случай
+        rows.append((num.group(1), cols[0]))
+    return rows
+
+
+def phase_dir_for(proj, number):
+    """Каталог фазы по номеру (`6` → `.planning/phases/06-...`), иначе None."""
+    pattern = os.path.join(proj, ".planning", "phases", f"{int(number):02d}-*")
+    hits = sorted(glob.glob(pattern))
+    return hits[0] if hits else None
+
+
+def check_phase_verification(proj):
+    """ROADMAP говорит Complete — подтверждает ли это верификация?
+
+    Ловит расхождение, из-за которого фаза 8 Filtrator простояла Complete с
+    2026-07-31 без единого VERIFICATION.md: пометку поставил коммит закрытия
+    ПЛАНА, а шаг verify_phase_goal (он в execute-phase идёт ПЕРЕД update_roadmap
+    и гарантирует отчёт) просто не отрабатывал — планы гонялись поштучно.
+    Сигнал у GSD уже был (`verification.status`), но оставался advisory:
+    его никто не читал. Здесь он становится вердиктом.
+    """
+    if not os.path.isdir(os.path.join(proj, ".planning")):
+        return Finding(NA, "Верификация фаз: проект не под GSD")
+
+    milestone = current_milestone(proj)
+    if not milestone:
+        return Finding(WARN, "Верификация фаз: не удалось определить текущий milestone",
+                       details=["STATE.md без поля `milestone:` — проверка пропущена"])
+
+    phases = roadmap_complete_phases(proj, milestone)
+    if not phases:
+        return Finding(OK, f"Верификация фаз: в {milestone} нет фаз со статусом Complete")
+
+    bad, unchecked, ok_n = [], [], 0
+    for number, title in phases:
+        pdir = phase_dir_for(proj, number)
+        if not pdir:
+            unchecked.append(f"фаза {number}: каталог не найден")
+            continue
+        ok, data = gsd_query(proj, "verification.status", os.path.relpath(pdir, proj))
+        if not ok:
+            unchecked.append(f"фаза {number}: gsd-tools не ответил")
+            continue
+        status = (data or {}).get("status", "?")
+        if status == "passed":
+            ok_n += 1
+        else:
+            short = title if len(title) <= 46 else title[:43] + "…"
+            bad.append(f"фаза {number} «{short}» — ROADMAP: Complete, "
+                       f"верификация: {status}")
+
+    if bad:
+        return Finding(
+            BLOCKER,
+            f"Верификация фаз: {len(bad)} фаза(-ы) помечены Complete без passing-отчёта",
+            details=bad + [f"(проверено в {milestone}; passing: {ok_n})"],
+            fix="/gsd-execute-phase <N> доводит до шага verify_phase_goal и создаёт "
+                "VERIFICATION.md; либо снять Complete в ROADMAP, если фаза не завершена",
+        )
+    if unchecked:
+        return Finding(UNKNOWN, "Верификация фаз: проверить не удалось",
+                       details=unchecked)
+    return Finding(OK, f"Верификация фаз: {ok_n}/{len(phases)} Complete-фаз "
+                       f"{milestone} с passing-отчётом")
+
+
 def check_health(proj):
     if not os.path.isdir(os.path.join(proj, ".planning")):
         return Finding(NA, "Health: проект не под GSD")
@@ -448,6 +584,7 @@ def main():
     findings = [handoff, check_vault(proj, projects_root), tree, push]
     if args.mode == "end":
         findings.append(check_session_log(proj, vault))
+    findings.append(check_phase_verification(proj))
     findings.append(check_health(proj))
 
     print(render(name, args.mode, findings))
