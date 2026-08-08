@@ -25,6 +25,8 @@ BLOCKER, UNKNOWN, WARN, OK, NA = "blocker", "unknown", "warn", "ok", "na"
 # Отставание handoff меньше этого порога — шум: /gsd-pause-work пишет handoff, а
 # коммит идёт следом через секунды. Блокер на таком отставании приучает
 # пролистывать вердикт, и гейт перестаёт работать там, где нужен.
+# Тот же допуск на дребезг переиспользует check_vault_artifacts: /mm save пишет
+# vault-файлы, коммит проекта ложится следом. Второй константы не заводим.
 HANDOFF_STALE_TOLERANCE_MIN = 5
 
 
@@ -280,6 +282,82 @@ def check_vault(proj, projects_root):
     return Finding(OK, f"Vault {vname}: чисто, синхронно (найден по {how})")
 
 
+VAULT_ARTIFACTS = ("handoff.md", "dashboard.md")
+
+
+def check_vault_artifacts(proj, vault):
+    """Свежесть vault-файлов для Project Knowledge относительно работы в проекте.
+
+    Отдельная проверка, а не ветка check_vault: тот отвечает на «доехало ли
+    записанное» (git), этот — на «записано ли вообще». Vault бывает чист,
+    запушен и при этом описывает позавчерашнее состояние: handoff.md и
+    dashboard.md пишет `/mm save`, а `/gsd-pause-work` обновляет
+    `.planning/HANDOFF.json` в репозитории ПРОЕКТА и до vault не дотягивается.
+    Так 2026-08-08 на RasilshikParser check_handoff и check_vault дали зелёный
+    одновременно, а vault-файлы отставали на 65 часов — и новый чат claude.ai
+    прочитал состояние трёхдневной давности.
+
+    HANDOFF_STALE_TOLERANCE_MIN здесь — допуск на дребезг записи и коммита
+    (`/mm save` пишет файлы, коммит ложится следом), а не самостоятельная
+    планка свежести: планка — сам факт «старше последнего коммита».
+
+    Возвращает WARN; в end-режиме main() поднимает его до блокера — тем же
+    приёмом, что у дерева и ahead. Между этапами GSD контекст восстанавливается
+    из `.planning/`, и claude.ai vault не перечитывает: устаревший vault
+    становится потерей на выходе из сессии, а не между фазами.
+    """
+    if not vault or not os.path.exists(os.path.join(vault, ".git")):
+        # Про это уже говорит check_vault — своим языком и со своим fix.
+        # Второй голос о том же и был бы той самой параллельной веткой блокеров.
+        return Finding(NA, "Vault-файлы Project Knowledge: vault не проверяется "
+                           "(состояние vault — в проверке выше)")
+
+    rc, out = run(["git", "-C", proj, "log", "-1", "--format=%cI"])
+    t_work = git_iso(out) if rc == 0 else None
+    if not t_work:
+        return Finding(NA, "Vault-файлы Project Knowledge: коммитов в проекте нет")
+
+    present, missing = [], []
+    for fname in VAULT_ARTIFACTS:
+        t = mtime_of(os.path.join(vault, fname))
+        if t:
+            present.append((fname, t))
+        else:
+            missing.append(fname)
+
+    if not present:
+        # Отсутствие файла — не устаревание: сверять не с чем. Это другой дефект,
+        # с другим владельцем (check_vault, лог сессии) и другой починкой, а
+        # блокер здесь краснел бы на vault'ах, заведённых до появления dashboard.md.
+        return Finding(NA, "Vault-файлы Project Knowledge: ни "
+                           + ", ни ".join(VAULT_ARTIFACTS) + " в vault нет — сверять нечего")
+
+    tolerance = HANDOFF_STALE_TOLERANCE_MIN * 60
+    lags = [(name, t, (t_work - t).total_seconds()) for name, t in present]
+    stale = [(name, t) for name, t, lag in lags if lag > tolerance]
+
+    rows = [f"{name}: {fmt(t)} — "
+            + (f"отстаёт на {delta(t_work, t)}" if lag > tolerance else "не старше коммита")
+            for name, t, lag in lags]
+    if missing:
+        rows.append("нет в vault: " + ", ".join(missing))
+
+    if stale:
+        return Finding(
+            WARN,
+            f"Vault-файлы Project Knowledge устарели ({', '.join(n for n, _ in stale)}) — "
+            f"последний коммит проекта {fmt(t_work)}",
+            details=rows + [f"допуск на дребезг записи и коммита: "
+                            f"{HANDOFF_STALE_TOLERANCE_MIN}м"],
+            fix="/mm save — он пишет handoff.md и dashboard.md в vault. "
+                "/gsd-pause-work здесь не годится: он обновляет .planning/HANDOFF.json "
+                "в репозитории проекта и vault не трогает",
+        )
+    return Finding(OK, "Vault-файлы Project Knowledge не старше коммита: "
+                       + "; ".join(f"{name} {fmt(t)}" for name, t in present)
+                       + f" · коммит {fmt(t_work)}")
+
+
 HANDOFF_EXCLUDES = [
     ":(exclude).planning/HANDOFF.json",
     ":(exclude).planning/phases/*/.continue-here.md",
@@ -288,31 +366,37 @@ HANDOFF_EXCLUDES = [
 
 
 def check_handoff(proj):
+    """Свежесть GSD-handoff — файлов состояния работы В РЕПОЗИТОРИИ ПРОЕКТА.
+
+    Не путать с vault-файлами для Project Knowledge (check_vault_artifacts):
+    здесь `.planning/*`, которые пишет `/gsd-pause-work`, там `handoff.md` и
+    `dashboard.md` в vault, которые пишет `/mm save`. Одно другое не заменяет.
+    """
     planning = os.path.join(proj, ".planning")
     if not os.path.isdir(planning):
-        return Finding(NA, "Handoff: проект не под GSD")
+        return Finding(NA, "GSD-handoff: проект не под GSD")
     rc, out = run(["git", "-C", proj, "log", "-1", "--format=%cI", "--", "."] + HANDOFF_EXCLUDES)
     t_work = git_iso(out) if rc == 0 else None
     if not t_work:
-        return Finding(NA, "Handoff: рабочих коммитов нет")
+        return Finding(NA, "GSD-handoff: рабочих коммитов нет")
     candidates = [os.path.join(planning, "HANDOFF.json"),
                   os.path.join(planning, "continue-here.md")]
     candidates += glob.glob(os.path.join(planning, "phases", "*", ".continue-here.md"))
     t_ho, path = newest(candidates)
     if not t_ho:
-        return Finding(BLOCKER, "Handoff не создавался — состояние работы нигде не записано",
+        return Finding(BLOCKER, "GSD-handoff не создавался — состояние работы нигде не записано",
                        fix="/gsd-pause-work")
     if t_ho < t_work:
         lag_min = int((t_work - t_ho).total_seconds()) // 60
         if lag_min < HANDOFF_STALE_TOLERANCE_MIN:
-            return Finding(OK, f"Handoff отстаёт на {delta(t_work, t_ho)} — в пределах порога "
+            return Finding(OK, f"GSD-handoff отстаёт на {delta(t_work, t_ho)} — в пределах порога "
                                f"{HANDOFF_STALE_TOLERANCE_MIN}м, не блокер")
         return Finding(BLOCKER,
-                       f"Handoff устарел: {fmt(t_ho)}, работа до {fmt(t_work)} "
+                       f"GSD-handoff устарел: {fmt(t_ho)}, работа до {fmt(t_work)} "
                        f"(+{delta(t_work, t_ho)})",
                        details=[os.path.relpath(path, proj).replace("\\", "/")],
                        fix="/gsd-pause-work")
-    return Finding(OK, f"Handoff свежий: {fmt(t_ho)} ≥ работа {fmt(t_work)}")
+    return Finding(OK, f"GSD-handoff свежий: {fmt(t_ho)} ≥ работа {fmt(t_work)}")
 
 
 def check_session_log(proj, vault):
@@ -541,8 +625,8 @@ def render(name, mode, findings):
 
     verdict = "НЕ ГОТОВО · exit 1" if (blockers or unknowns) else "ГОТОВО К /clear · exit 0"
     out.append(f"── ВЕРДИКТ: {verdict} ──")
-    out.append(f"порог свежести handoff: {HANDOFF_STALE_TOLERANCE_MIN} мин "
-               "(меньше — не блокер)")
+    out.append(f"порог свежести GSD-handoff: {HANDOFF_STALE_TOLERANCE_MIN} мин "
+               "(меньше — не блокер); он же — допуск на дребезг у vault-файлов")
     out.append("fetch не выполнялся (read-only): behind-состояние может быть устаревшим")
     return "\n".join(out)
 
@@ -569,6 +653,7 @@ def main():
     handoff = check_handoff(proj)
     tree = check_tree(proj)
     push = check_push(proj)
+    vault_files = check_vault_artifacts(proj, vault)
 
     # Поправка А/Б: в mid дерево и ahead — предупреждения; дерево становится
     # блокером только вместе с красным handoff (незаписанное + грязное = потеря).
@@ -577,11 +662,16 @@ def main():
             tree.level = BLOCKER
         if push.level == WARN and push.fix and "push origin" in (push.fix or ""):
             push.level = BLOCKER
+        # Vault-файлы — той же планкой, что лог сессии: только в end. Между
+        # этапами GSD контекст восстанавливается из .planning/, vault claude.ai
+        # не перечитывает; потерей устаревший vault становится на выходе.
+        if vault_files.level == WARN and vault_files.fix:
+            vault_files.level = BLOCKER
     elif handoff.level == BLOCKER and tree.level == WARN and tree.fix:
         tree.level = BLOCKER
         tree.title += " — при устаревшем handoff это потеря"
 
-    findings = [handoff, check_vault(proj, projects_root), tree, push]
+    findings = [handoff, check_vault(proj, projects_root), vault_files, tree, push]
     if args.mode == "end":
         findings.append(check_session_log(proj, vault))
     findings.append(check_phase_verification(proj))
