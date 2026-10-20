@@ -122,18 +122,28 @@ def main():
     
     home = os.path.expanduser("~")
     target_root = os.path.join(home, ".claude", "skills")
+    antigravity_knowledge_dir = os.path.join(home, ".gemini", "antigravity", "knowledge")
+    
+    args = sys.argv[1:]
+    only_claude = "--only-claude" in args
+    only_antigravity = "--only-antigravity" in args
+    
+    register_claude = not only_antigravity
+    register_antigravity = not only_claude
     
     print(f"Repo:   {repo_root}")
     print(f"Source: {source_dir}")
-    print(f"Target: {target_root}")
+    if register_claude:
+        print(f"Target: {target_root}")
     
     if not os.path.exists(source_dir):
         print(f"Error: Source dir not found: {source_dir}")
         sys.exit(1)
         
-    if not os.path.exists(target_root):
-        print(f"Target dir not found: {target_root}. Creating it...")
-        os.makedirs(target_root, exist_ok=True)
+    if register_claude:
+        if not os.path.exists(target_root):
+            print(f"Target dir not found: {target_root}. Creating it...")
+            os.makedirs(target_root, exist_ok=True)
         
     is_windows = (platform.system() == 'Windows')
     
@@ -199,17 +209,18 @@ def main():
     sec_added, sec_updated, sec_skipped, sec_changed, sec_errors = deploy_claude_md_sections(repo_root, home)
 
     skills = []
-    if os.path.exists(source_dir):
-        for name in os.listdir(source_dir):
-            p = os.path.join(source_dir, name)
-            if os.path.isdir(p):
-                skills.append((name, p))
-                
-    if os.path.exists(vendor_dir):
-         for name in os.listdir(vendor_dir):
-            p = os.path.join(vendor_dir, name)
-            if os.path.isdir(p):
-                skills.append((name, p))
+    if register_claude:
+        if os.path.exists(source_dir):
+            for name in os.listdir(source_dir):
+                p = os.path.join(source_dir, name)
+                if os.path.isdir(p):
+                    skills.append((name, p))
+                    
+        if os.path.exists(vendor_dir):
+             for name in os.listdir(vendor_dir):
+                p = os.path.join(vendor_dir, name)
+                if os.path.isdir(p):
+                    skills.append((name, p))
                 
     created = 0
     skipped = 0
@@ -264,8 +275,7 @@ def main():
             errors += 1
             
     # Register global instructions for Antigravity (Gemini) if directory exists
-    antigravity_knowledge_dir = os.path.join(home, ".gemini", "antigravity", "knowledge")
-    if os.path.exists(antigravity_knowledge_dir):
+    if register_antigravity and os.path.exists(antigravity_knowledge_dir):
         global_inst_dest = os.path.join(antigravity_knowledge_dir, "mm-global-instructions.md")
         instructions_content = """# markdown-memory (mm) Global System Instructions
 
