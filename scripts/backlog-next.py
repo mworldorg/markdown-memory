@@ -22,6 +22,9 @@ from collections import Counter
 # перед номером встречается). Варианты '## 146-старое.' намеренно не ловим:
 # это помеченные версии одной записи, а не отдельные номера серии.
 HEADING = re.compile(r"^##\s+(?:(\S+)\s+)?(\d+)\.\s*(.*)$")
+# Второй формат, которым заводятся новые пункты: '### #634 — ...'. Подзаголовки
+# внутри пункта ('### ⊕ ...', '### Что известно') сюда не попадают: нужен '#' и номер.
+HEADING_HASH = re.compile(r"^###\s+#(\d+)\b\s*(?:—\s*)?(.*)$")
 
 CLOSED = re.compile(r"✅|🟢|FIXED|RESOLVED|CLOSED|ЗАКРЫТ|DONE")
 
@@ -99,10 +102,14 @@ def parse(path):
     items, cur, body = [], None, []
     for line in lines:
         m = HEADING.match(line)
-        if m:
+        h = None if m else HEADING_HASH.match(line)
+        if m or h:
             if cur:
                 items.append(cur + ("\n".join(body),))
-            marker, num, title = m.group(1) or "", m.group(2), m.group(3)
+            if m:
+                marker, num, title = m.group(1) or "", m.group(2), m.group(3)
+            else:
+                marker, num, title = "", h.group(1), h.group(2)
             cur = (int(num), title.strip(), bool(CLOSED.search(marker + " " + title)))
             body = []
         elif cur:
