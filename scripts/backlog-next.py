@@ -4,8 +4,13 @@
 Делает ровно то, что нельзя доверить памяти: номер от фактического максимума
 и проверку «а не заводили ли уже это». Формулировку находки пишет модель.
 
-Только чтение: BACKLOG.md не правится, git не трогается, ничего не создаётся.
-Exit code всегда 0 — это подсказка перед заводом пункта, а не гейт.
+Источник серии: `.planning/BACKLOG.md`, а если его нет — бэклог GSD в
+`.planning/ROADMAP.md` (разделы `### Phase 999.N: …`, номер пункта — 999.N).
+
+Только чтение: файлы не правятся, git не трогается, ничего не создаётся.
+Exit code: 0 — номер выдан; 1 — серии нет (ни BACKLOG.md, ни пунктов 999.N
+в ROADMAP.md) или формат не распознан. Код 0 при «заводить некуда» прятал
+отказ от вызывающего: номер в таком случае брали грепом, мимо проверки повторов.
 
   python backlog-next.py --project <путь> --about "текст находки"
 """
@@ -25,6 +30,13 @@ HEADING = re.compile(r"^##\s+(?:(\S+)\s+)?(\d+)\.\s*(.*)$")
 # Второй формат, которым заводятся новые пункты: '### #634 — ...'. Подзаголовки
 # внутри пункта ('### ⊕ ...', '### Что известно') сюда не попадают: нужен '#' и номер.
 HEADING_HASH = re.compile(r"^###\s+#(\d+)\b\s*(?:—\s*)?(.*)$")
+# Бэклог GSD в ROADMAP.md: '### Phase 999.12: ... (BACKLOG)'. Так он живёт у
+# проектов без BACKLOG.md (ModelSearch: коммиты 'docs(backlog): #999.N — …').
+HEADING_ROADMAP = re.compile(r"^###\s+Phase\s+999\.(\d+):\s*(.*)$")
+# В ROADMAP.md любой другой заголовок до третьего уровня закрывает пункт:
+# фазы вехи ('### Phase 19.2: …') и разделы не должны попасть в тело пункта.
+ANY_HEADING = re.compile(r"^#{1,3}\s")
+ROADMAP_PREFIX = "999."
 
 CLOSED = re.compile(r"✅|🟢|FIXED|RESOLVED|CLOSED|ЗАКРЫТ|DONE")
 
@@ -75,32 +87,44 @@ def dice(a, b):
 
 
 def find_backlog(project):
-    """Путь к BACKLOG.md, иначе None. Если в <project> его нет — пробуем корень
-    git-репозитория: команду часто зовут из подкаталога."""
-    direct = os.path.join(project, ".planning", "BACKLOG.md")
-    if os.path.isfile(direct):
-        return direct
+    """(путь, вид) источника серии, иначе (None, None). Вид — 'backlog' для
+    BACKLOG.md, 'roadmap' для ROADMAP.md. Если в <project> нет ни того, ни
+    другого — пробуем корень git-репозитория: команду часто зовут из подкаталога."""
+    bases = [project]
     try:
         p = subprocess.run(["git", "-C", project, "rev-parse", "--show-toplevel"],
                            capture_output=True, text=True, encoding="utf-8",
                            errors="replace")
-        root = p.stdout.strip()
+        if p.returncode == 0 and p.stdout.strip():
+            bases.append(os.path.normpath(p.stdout.strip()))
     except (OSError, ValueError):
-        root = ""
-    if p.returncode == 0 and root:
-        cand = os.path.join(os.path.normpath(root), ".planning", "BACKLOG.md")
-        if os.path.isfile(cand):
-            return cand
-    return None
+        pass
+    for base in bases:
+        for fname, kind in (("BACKLOG.md", "backlog"), ("ROADMAP.md", "roadmap")):
+            cand = os.path.join(base, ".planning", fname)
+            if os.path.isfile(cand):
+                return cand, kind
+    return None, None
 
 
-def parse(path):
+def parse(path, kind="backlog"):
     """[(номер, заголовок, closed, тело)] по секциям файла."""
     with open(path, encoding="utf-8") as f:
         lines = f.read().splitlines()
 
     items, cur, body = [], None, []
     for line in lines:
+        if kind == "roadmap":
+            r = HEADING_ROADMAP.match(line)
+            if r or ANY_HEADING.match(line):
+                if cur:
+                    items.append(cur + ("\n".join(body),))
+                cur = ((int(r.group(1)), r.group(2).strip(),
+                        bool(CLOSED.search(r.group(2)))) if r else None)
+                body = []
+            elif cur:
+                body.append(line)
+            continue
         m = HEADING.match(line)
         h = None if m else HEADING_HASH.match(line)
         if m or h:
@@ -167,32 +191,35 @@ def main():
     args = ap.parse_args()
 
     project = os.path.abspath(args.project)
-    path = find_backlog(project)
-    if not path:
-        print(f"📕 BACKLOG.md не найден: {os.path.join(project, '.planning', 'BACKLOG.md')}")
-        print("   Серии нумерации в проекте нет — заводить пункт некуда.")
-        return 0
-
-    items = parse(path)
+    path, kind = find_backlog(project)
+    items = parse(path, kind) if path else []
     if not items:
-        print(f"📕 {path}")
-        print("   Заголовков вида '## N.' не найдено — файл пуст или формат иной.")
-        return 0
+        planning = os.path.join(project, ".planning")
+        if path and kind == "backlog":
+            print(f"📕 {path}")
+            print("   Заголовков вида '## N.' или '### #N' не найдено — файл пуст или формат иной.")
+        else:
+            print(f"📕 Серия номеров не найдена: нет {os.path.join(planning, 'BACKLOG.md')}")
+            print(f"   и нет пунктов '### Phase 999.N:' в {path or os.path.join(planning, 'ROADMAP.md')}")
+            print("   Заводить пункт некуда.")
+        return 1
 
+    pfx = ROADMAP_PREFIX if kind == "roadmap" else ""
     nums = sorted(i[0] for i in items)
     uniq = sorted(set(nums))
     closed_n = sum(1 for i in items if i[2])
+    nxt = f"{pfx}{uniq[-1] + 1}"
 
     print(f"📕 {path}")
     print(f"   пунктов: {len(items)} · номеров уникальных: {len(uniq)} · "
           f"закрытых по маркеру: {closed_n}")
     print()
-    print(f"➡️  СЛЕДУЮЩИЙ НОМЕР: #{uniq[-1] + 1}   (максимум серии #{uniq[-1]})")
+    print(f"➡️  СЛЕДУЮЩИЙ НОМЕР: #{nxt}   (максимум серии #{pfx}{uniq[-1]})")
     print()
 
     gaps = [n for n in range(uniq[0], uniq[-1]) if n not in set(uniq)]
     if gaps:
-        print(f"🕳  Пропуски в серии ({len(gaps)}): " + ", ".join(f"#{g}" for g in gaps))
+        print(f"🕳  Пропуски в серии ({len(gaps)}): " + ", ".join(f"#{pfx}{g}" for g in gaps))
         print("   Свободные номера не переиспользуются: на них могли ссылаться.")
         print()
 
@@ -203,7 +230,7 @@ def main():
             for num, title, closed, _ in items:
                 if num == d:
                     mark = "закрыт" if closed else "открыт"
-                    print(f"   #{d} [{mark}] {title[:88]}")
+                    print(f"   #{pfx}{d} [{mark}] {title[:88]}")
         print()
 
     if args.about:
@@ -211,15 +238,15 @@ def main():
         print(f"🔎 Похожие пункты на «{args.about[:70]}»")
         if not cands:
             print(f"   ничего выше порога {SIMILAR_FLOOR:.2f} — похожего нет, "
-                  f"заводи #{uniq[-1] + 1}")
+                  f"заводи #{nxt}")
         else:
             for score, num, title, closed in cands:
                 mark = "закрыт" if closed else "открыт"
-                print(f"   {score:.2f}  #{num} [{mark}] {title[:80]}")
+                print(f"   {score:.2f}  #{pfx}{num} [{mark}] {title[:80]}")
             print()
             print("   Прочитай кандидатов: если находка ложится в существующий пункт — "
                   "дополни его,")
-            print(f"   нового номера не заводи. Если не ложится — #{uniq[-1] + 1}.")
+            print(f"   нового номера не заводи. Если не ложится — #{nxt}.")
     else:
         print("ℹ️  Поиск похожих не выполнялся — передай --about \"<текст находки>\".")
 
