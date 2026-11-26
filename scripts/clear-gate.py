@@ -282,7 +282,9 @@ def check_vault(proj, projects_root):
     return Finding(OK, f"Vault {vname}: чисто, синхронно (найден по {how})")
 
 
-VAULT_ARTIFACTS = ("handoff.md", "dashboard.md")
+# dashboard.md — легаси (решение владельца 2026-11-26, ModelSearch BACKLOG 999.18): его не пишет ни один
+# скилл, текущее состояние живёт в 00-home/текущие приоритеты.md и handoff.md. Гейт его не сверяет.
+VAULT_ARTIFACTS = ("handoff.md",)
 
 
 def check_vault_artifacts(proj, vault):
@@ -291,7 +293,7 @@ def check_vault_artifacts(proj, vault):
     Отдельная проверка, а не ветка check_vault: тот отвечает на «доехало ли
     записанное» (git), этот — на «записано ли вообще». Vault бывает чист,
     запушен и при этом описывает позавчерашнее состояние: handoff.md пишет
-    `/mm save` (dashboard.md — никто, см. vault_artifacts_fix), а `/gsd-pause-work` обновляет
+    `/mm save`, а `/gsd-pause-work` обновляет
     `.planning/HANDOFF.json` в репозитории ПРОЕКТА и до vault не дотягивается.
     Так 2026-08-08 на RasilshikParser check_handoff и check_vault дали зелёный
     одновременно, а vault-файлы отставали на 65 часов — и новый чат claude.ai
@@ -361,14 +363,11 @@ def vault_artifacts_fix(stale):
     handoff.md `/mm save` перезаписывает (шаг 5.6 через /mm-handoff), а
     dashboard.md не пишет ни один скилл — его один раз создаёт mm-init-project, и
     оператор, следующий старой подсказке, гонял /mm save по кругу с тем же
-    блокером (2026-08-17, ModelSearch BACKLOG 999.18). Признать dashboard.md
-    легаси или вернуть его запись в /mm save — отдельное решение."""
+    блокером (2026-08-17, ModelSearch BACKLOG 999.18). С 2026-11-26 dashboard.md —
+    легаси и в VAULT_ARTIFACTS не входит."""
     out = []
     if "handoff.md" in stale:
         out.append("handoff.md — /mm save (перезаписывает его через /mm-handoff)")
-    if "dashboard.md" in stale:
-        out.append("dashboard.md — /mm save его НЕ пишет, ни один скилл не обновляет: "
-                   "обнови руками (frontmatter updated: и секция «Сейчас»)")
     out.append("/gsd-pause-work здесь не годится: он обновляет .planning/HANDOFF.json "
                "в репозитории проекта и vault не трогает")
     return ". ".join(out)
@@ -386,7 +385,7 @@ def check_handoff(proj):
 
     Не путать с vault-файлами для Project Knowledge (check_vault_artifacts):
     здесь `.planning/*`, которые пишет `/gsd-pause-work`, там `handoff.md`
-    (пишет `/mm save`) и `dashboard.md` в vault. Одно другое не заменяет.
+    в vault (пишет `/mm save`). Одно другое не заменяет.
     """
     planning = os.path.join(proj, ".planning")
     if not os.path.isdir(planning):
