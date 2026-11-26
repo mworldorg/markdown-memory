@@ -290,8 +290,8 @@ def check_vault_artifacts(proj, vault):
 
     Отдельная проверка, а не ветка check_vault: тот отвечает на «доехало ли
     записанное» (git), этот — на «записано ли вообще». Vault бывает чист,
-    запушен и при этом описывает позавчерашнее состояние: handoff.md и
-    dashboard.md пишет `/mm save`, а `/gsd-pause-work` обновляет
+    запушен и при этом описывает позавчерашнее состояние: handoff.md пишет
+    `/mm save` (dashboard.md — никто, см. vault_artifacts_fix), а `/gsd-pause-work` обновляет
     `.planning/HANDOFF.json` в репозитории ПРОЕКТА и до vault не дотягивается.
     Так 2026-08-08 на RasilshikParser check_handoff и check_vault дали зелёный
     одновременно, а vault-файлы отставали на 65 часов — и новый чат claude.ai
@@ -349,13 +349,29 @@ def check_vault_artifacts(proj, vault):
             f"последний коммит проекта {fmt(t_work)}",
             details=rows + [f"допуск на дребезг записи и коммита: "
                             f"{HANDOFF_STALE_TOLERANCE_MIN}м"],
-            fix="/mm save — он пишет handoff.md и dashboard.md в vault. "
-                "/gsd-pause-work здесь не годится: он обновляет .planning/HANDOFF.json "
-                "в репозитории проекта и vault не трогает",
+            fix=vault_artifacts_fix({n for n, _ in stale}),
         )
     return Finding(OK, "Vault-файлы Project Knowledge не старше коммита: "
                        + "; ".join(f"{name} {fmt(t)}" for name, t in present)
                        + f" · коммит {fmt(t_work)}")
+
+
+def vault_artifacts_fix(stale):
+    """Подсказка по каждому устаревшему файлу. Общая «/mm save пишет оба» врала:
+    handoff.md `/mm save` перезаписывает (шаг 5.6 через /mm-handoff), а
+    dashboard.md не пишет ни один скилл — его один раз создаёт mm-init-project, и
+    оператор, следующий старой подсказке, гонял /mm save по кругу с тем же
+    блокером (2026-08-17, ModelSearch BACKLOG 999.18). Признать dashboard.md
+    легаси или вернуть его запись в /mm save — отдельное решение."""
+    out = []
+    if "handoff.md" in stale:
+        out.append("handoff.md — /mm save (перезаписывает его через /mm-handoff)")
+    if "dashboard.md" in stale:
+        out.append("dashboard.md — /mm save его НЕ пишет, ни один скилл не обновляет: "
+                   "обнови руками (frontmatter updated: и секция «Сейчас»)")
+    out.append("/gsd-pause-work здесь не годится: он обновляет .planning/HANDOFF.json "
+               "в репозитории проекта и vault не трогает")
+    return ". ".join(out)
 
 
 HANDOFF_EXCLUDES = [
@@ -369,8 +385,8 @@ def check_handoff(proj):
     """Свежесть GSD-handoff — файлов состояния работы В РЕПОЗИТОРИИ ПРОЕКТА.
 
     Не путать с vault-файлами для Project Knowledge (check_vault_artifacts):
-    здесь `.planning/*`, которые пишет `/gsd-pause-work`, там `handoff.md` и
-    `dashboard.md` в vault, которые пишет `/mm save`. Одно другое не заменяет.
+    здесь `.planning/*`, которые пишет `/gsd-pause-work`, там `handoff.md`
+    (пишет `/mm save`) и `dashboard.md` в vault. Одно другое не заменяет.
     """
     planning = os.path.join(proj, ".planning")
     if not os.path.isdir(planning):
